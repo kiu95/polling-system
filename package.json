@@ -1,0 +1,7 @@
+{
+  "name": "scmp-polling-system",
+  "private": true,
+  "workspaces": [
+    "shared"
+  ]
+}
