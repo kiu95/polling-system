@@ -18,6 +18,7 @@ The product spec and GitHub issues are the source of scope. The assistant does n
 10. **PR #6 review (pre-merge).** Review pasted in chat: add Node `engines` and README Node version; `pretest` builds shared; CORS comment for local-only
 11. **Issue #2, first todo (shared types).** User said `go 1st todo item`. Scope was [`shared/src/index.ts`](shared/src/index.ts) only: `VoteAccepted`, `PollResultOption`, and `PollResults`. No routes, SQL, instability, tests, or README. Property order follows the property-sort rule (`pollId` before `optionId`; `total` before `pollId`; `count` before `label`).
 12. **Issue #2, second todo (vote write and results read).** User said `go 2nd todo item`. Scope was [`server/src/db.ts`](server/src/db.ts) only: `busy_timeout`, `insertVote` in a transaction (insert, unique constraint → `already_voted`), `getResults` via `COUNT` and one-decimal percentage. No routes, instability, HTTP tests, or README. Counts are not a stored counter.
+13. **Issue #2, third todo (vote instability).** User said `3rd todo item`. Scope was [`server/src/vote-instability.ts`](server/src/vote-instability.ts) plus env wiring: `voteInstabilityFromEnv` (default on unless `VOTE_INSTABILITY=off`), `applyVoteInstability` (about `VOTE_FAILURE_RATE` of calls, then half fail and half delay), and `buildApp` stores that config. Omitted config stays off so existing tests do not roll the sim. No `POST /vote`, results route, or README.
 
 ## What was built under that strategy
 

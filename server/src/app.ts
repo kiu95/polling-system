@@ -1,9 +1,17 @@
 import cors from '@fastify/cors';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { getActivePoll, type SqliteDatabase } from './db.js';
+import { DISABLED_VOTE_INSTABILITY, type VoteInstabilityConfig } from './vote-instability.js';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    voteInstability: VoteInstabilityConfig;
+  }
+}
 
 interface BuildAppOptions {
   logger?: boolean;
+  voteInstability?: VoteInstabilityConfig;
 }
 
 export async function buildApp(
@@ -11,6 +19,8 @@ export async function buildApp(
   options: BuildAppOptions = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({ logger: options.logger ?? false });
+  const voteInstability = options.voteInstability ?? DISABLED_VOTE_INSTABILITY;
+  app.decorate('voteInstability', voteInstability);
   // Local dev only: reflect any Origin (fine for 127.0.0.1). Tighten to an allowlist before Docker / exposed ports — see issue #5.
   await app.register(cors, { origin: true });
 
