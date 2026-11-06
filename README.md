@@ -69,6 +69,22 @@ npm test
 
 Server tests use an in-memory database (no `server/data/poll.db`). Client tests cover the API URL helper only.
 
+## Lint and format
+
+Biome checks `client/` and `server/` (see [`biome.json`](biome.json): 2-space indent, width 100, single quotes, semicolons).
+
+```bash
+npm run lint
+npm run lint:fix
+```
+
+Per package:
+
+```bash
+npm run lint --workspace=@scmp/client
+npm run lint --workspace=@scmp/server
+```
+
 ## Shared types
 
 Cross-package types live in [`shared/`](shared/).

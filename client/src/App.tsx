@@ -1,8 +1,8 @@
 import type { ActivePoll } from '@scmp/shared';
-import { useEffect, useState, type FC } from 'react';
+import { type FC, useEffect, useState } from 'react';
 import { apiUrl } from './api';
 
-interface AppProps {}
+type AppProps = Record<string, never>;
 
 type ViewState =
   | { status: 'loading' }

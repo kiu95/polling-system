@@ -14,13 +14,14 @@ The product spec and GitHub issues are the source of scope. The assistant does n
 6. **Fourth todo (Vitest smoke).** User said `go for 4th todo item`; scope was `@scmp/server` only: Vitest `inject` for `GET /health` and `GET /poll`, `:memory:` DB with `initDatabase` called twice to assert idempotent seed. Root `npm run test`, client, and concurrent `dev` stayed out.
 7. **Fifth todo (client page).** User said `go for 5th todo item`. Scope was `@scmp/client`: Vite React page, dev proxy for `/health` and `/poll`, render health OK and the seed question. No vote button. Root `dev` / `concurrently` stayed on the sixth todo. `client` was added to workspaces so `npm install` can see the package.
 8. **Sixth todo (root scripts).** User said `go remaining todo`. Scope was root `package.json` scripts: `dev` runs server and client with `concurrently`, `predev` builds `@scmp/shared`, `build` builds shared then server then client, `test` runs both workspaces, `seed` delegates to the server. README updated for the one-command flow.
+9. **Biome.** User asked to add Biome for linting and formatting on `client` and `server`. Root [`biome.json`](biome.json) plus `lint` / `lint:fix` at root and in each package. `shared` left out on purpose unless the user asks.
 
 ## What was built under that strategy
 
 - Root `.gitignore`, `README.md`, and an npm workspace for `@scmp/shared` (`ActivePoll`, `PollOption`).
 - `@scmp/server`: Fastify `GET /health` and `GET /poll`, CORS, SQLite file `server/data/poll.db`, WAL, foreign keys, schema for `polls` / `options` / `votes`, seed of `poll-1` only when that id is missing, Vitest smoke in `server/src/app.test.ts` (in-memory DB).
 - `@scmp/client`: Vite React page. Empty `VITE_API_URL` uses the dev proxy. The page shows health OK, the seed question, and option labels. No vote control.
-- Root scripts: `npm run dev`, `npm test`, `npm run build`, `npm run seed` (see [`package.json`](package.json)).
+- Root scripts: `npm run dev`, `npm test`, `npm run build`, `npm run seed`, `npm run lint` / `npm run lint:fix` (see [`package.json`](package.json)).
 - Verified on this machine: second seed still leaves 1 poll and 3 options; `GET /health` returns `{"ok":true}`; `GET /poll` returns the seed question and Web / App / Print; `journal_mode` is `wal`. Browser at `http://127.0.0.1:5173/` showed Health OK, “Which format do you read most?”, and Web / App / Print.
 
 ## Defects the assistant introduced
@@ -58,6 +59,14 @@ Symptom: one test mixed row counts and both routes; a failure would not say whic
 ### Vite listened on IPv6 only
 
 Symptom: `http://127.0.0.1:5173/` refused the connection while `http://localhost:5173/` returned 200. Cause: Vite's default `localhost` bind on this Mac was `[::1]:5173` only. The README tells people to open `127.0.0.1`. Fix: `server.host: '127.0.0.1'` in `client/vite.config.ts`. The assistant found it by curling the documented URL and fixed it in the same slice. The user did not edit it.
+
+### `biome.json` used a removed `files.ignore` key
+
+Symptom: `biome check` failed with “unknown key `ignore`”. Cause: Biome 2.6 expects `files.includes` with negated globs, not `ignore`. Fix: `npx biome migrate --write`.
+
+### Empty `AppProps` tripped `noBannedTypes`
+
+Symptom: `interface AppProps {}` or `type AppProps = {}` warned that `{}` is a banned type. Fix: `type AppProps = Record<string, never>` on `App` in [`client/src/App.tsx`](client/src/App.tsx).
 
 ### Root `dev` accepts extra `GET` probes to port 3000
 

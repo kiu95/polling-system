@@ -6,6 +6,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
     "seed": "tsx src/seed-cli.ts",
     "start": "node dist/index.js",
     "test": "vitest run"
