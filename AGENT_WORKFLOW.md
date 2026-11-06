@@ -14,14 +14,15 @@ The product spec and GitHub issues are the source of scope. The assistant does n
 6. **Fourth todo (Vitest smoke).** User said `go for 4th todo item`; scope was `@scmp/server` only: Vitest `inject` for `GET /health` and `GET /poll`, `:memory:` DB with `initDatabase` called twice to assert idempotent seed. Root `npm run test`, client, and concurrent `dev` stayed out.
 7. **Fifth todo (client page).** User said `go for 5th todo item`. Scope was `@scmp/client`: Vite React page, dev proxy for `/health` and `/poll`, render health OK and the seed question. No vote button. Root `dev` / `concurrently` stayed on the sixth todo. `client` was added to workspaces so `npm install` can see the package.
 8. **Sixth todo (root scripts).** User said `go remaining todo`. Scope was root `package.json` scripts: `dev` runs server and client with `concurrently`, `predev` builds `@scmp/shared`, `build` builds shared then server then client, `test` runs both workspaces, `seed` delegates to the server. README updated for the one-command flow.
-9. **Biome.** User asked to add Biome for linting and formatting on `client` and `server`. Root [`biome.json`](biome.json) plus `lint` / `lint:fix` at root and in each package. `shared` left out on purpose unless the user asks.
+9. **Biome.** User asked to add Biome for linting and formatting on `client` and `server`. Later the same user asked to include [`shared/`](shared/) in root `lint` / `lint:fix` and matching scripts on `@scmp/shared`.
+10. **PR #6 review (pre-merge).** Review pasted in chat: add Node `engines` and README Node version; `pretest` builds shared; CORS comment for local-only; stricter seed option count in tests; `App` as plain `function` (no empty `FC` props); keep misleading `.cursor/rules/code-style.mdc` for a separate PR.
 
 ## What was built under that strategy
 
 - Root `.gitignore`, `README.md`, and an npm workspace for `@scmp/shared` (`ActivePoll`, `PollOption`).
 - `@scmp/server`: Fastify `GET /health` and `GET /poll`, CORS, SQLite file `server/data/poll.db`, WAL, foreign keys, schema for `polls` / `options` / `votes`, seed of `poll-1` only when that id is missing, Vitest smoke in `server/src/app.test.ts` (in-memory DB).
 - `@scmp/client`: Vite React page. Empty `VITE_API_URL` uses the dev proxy. The page shows health OK, the seed question, and option labels. No vote control.
-- Root scripts: `npm run dev`, `npm test`, `npm run build`, `npm run seed`, `npm run lint` / `npm run lint:fix` (see [`package.json`](package.json)).
+- Root scripts: `npm run dev`, `npm test`, `npm run build`, `npm run seed`, `npm run lint` / `npm run lint:fix` (see [`package.json`](package.json)). Root [`package.json`](package.json) has `"engines": { "node": ">=24" }`; [`.nvmrc`](.nvmrc) pins 24 for nvm. `pretest` runs `build` on `@scmp/shared` so `npm test` works without a manual shared build.
 - Verified on this machine: second seed still leaves 1 poll and 3 options; `GET /health` returns `{"ok":true}`; `GET /poll` returns the seed question and Web / App / Print; `journal_mode` is `wal`. Browser at `http://127.0.0.1:5173/` showed Health OK, “Which format do you read most?”, and Web / App / Print.
 
 ## Defects the assistant introduced
@@ -46,7 +47,7 @@ Audit point: the version bump is still `better-sqlite3`, not Prisma, but it was 
 
 ### Shared types resolve only after a build
 
-`@scmp/shared` exports `dist/index.d.ts`. Server `tsc` cannot see `ActivePoll` until `npm run build --workspace=@scmp/shared` has been run. The assistant documented that extra command in the README instead of TypeScript project references or an export of the source file. Forgetting the shared build produces a typecheck failure that looks like a missing module. It is an ordering footgun the scaffold created.
+`@scmp/shared` exports `dist/index.d.ts`. Server `tsc` cannot see `ActivePoll` until `npm run build --workspace=@scmp/shared` has been run. Root `predev` and `pretest` run that build; README still documents running it yourself when skipping those hooks. TypeScript project references remain a follow-up.
 
 ### README described a server that already existed
 
@@ -68,9 +69,9 @@ Symptom: `git status` showed tracked SQLite sidecar files under [`server/data/`]
 
 Symptom: `biome check` failed with “unknown key `ignore`”. Cause: Biome 2.6 expects `files.includes` with negated globs, not `ignore`. Fix: `npx biome migrate --write`.
 
-### Empty `AppProps` tripped `noBannedTypes`
+### README typo `better-sqlitejs`
 
-Symptom: `interface AppProps {}` or `type AppProps = {}` warned that `{}` is a banned type. Fix: `type AppProps = Record<string, never>` on `App` in [`client/src/App.tsx`](client/src/App.tsx).
+Symptom: first draft of the Requirements section linked the wrong package name. Fix: correct to [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) before merge.
 
 ### Root `dev` accepts extra `GET` probes to port 3000
 

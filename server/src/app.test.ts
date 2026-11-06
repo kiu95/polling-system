@@ -22,7 +22,7 @@ describe('HTTP API', () => {
     const pollRows = db.prepare('SELECT COUNT(*) AS n FROM polls').get() as { n: number };
     const optionRows = db.prepare('SELECT COUNT(*) AS n FROM options').get() as { n: number };
     expect(pollRows.n).toBe(1);
-    expect(optionRows.n).toBeGreaterThanOrEqual(2);
+    expect(optionRows.n).toBe(3);
   });
 
   it('GET /health returns ok', async () => {
@@ -41,7 +41,7 @@ describe('HTTP API', () => {
     };
     expect(body.id).toBe('poll-1');
     expect(body.question.length).toBeGreaterThan(0);
-    expect(body.options.length).toBeGreaterThanOrEqual(2);
+    expect(body.options.length).toBe(3);
     expect(body.options.every((option) => option.id && option.label)).toBe(true);
   });
 });

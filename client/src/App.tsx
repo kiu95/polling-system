@@ -2,14 +2,13 @@ import type { ActivePoll } from '@scmp/shared';
 import { type FC, useEffect, useState } from 'react';
 import { apiUrl } from './api';
 
-type AppProps = Record<string, never>;
 
 type ViewState =
   | { status: 'loading' }
   | { message: string; status: 'error' }
   | { status: 'ready'; poll: ActivePoll; healthOk: boolean };
 
-export const App: FC<AppProps> = () => {
+export const App: FC = () => {
   const [view, setView] = useState<ViewState>({ status: 'loading' });
 
   useEffect(() => {

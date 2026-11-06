@@ -14,6 +14,11 @@ Local development — see [issue #1](https://github.com/kiu95/scmp-polling-syste
 | API     | 3000 |
 | Vite    | 5173 |
 
+## Requirements
+
+- **Node.js 24 or newer** — required by [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) (native prebuilds; older Node versions often fall back to a source compile that can fail). This repo is also verified on **Node.js 24.x** (darwin arm64).
+- Optional: place an [`.nvmrc`](.nvmrc) at the repo root and run `nvm use` before `npm install`.
+
 ## Install
 
 From the repository root:
@@ -21,6 +26,8 @@ From the repository root:
 ```bash
 npm install
 ```
+
+Build [`shared/`](shared/) before TypeScript resolves `@scmp/shared` in other packages. Root `pretest` and `predev` run that build automatically; if you run `npm run test` or `npm run dev --workspace=@scmp/server` **without** going through those hooks, run `npm run build --workspace=@scmp/shared` once first.
 
 ## Run both (root)
 
@@ -67,11 +74,11 @@ npm run start --workspace=@scmp/server
 npm test
 ```
 
-Server tests use an in-memory database (no `server/data/poll.db`). Client tests cover the API URL helper only.
+`pretest` builds `@scmp/shared` so workspace tests resolve types and package exports. Server tests use an in-memory database (no `server/data/poll.db`). Client tests cover the API URL helper only.
 
 ## Lint and format
 
-Biome checks `client/` and `server/` (see [`biome.json`](biome.json): 2-space indent, width 100, single quotes, semicolons).
+Biome checks `client/`, `server/`, and `shared/` (see [`biome.json`](biome.json): 2-space indent, width 100, single quotes, semicolons).
 
 ```bash
 npm run lint
@@ -83,6 +90,7 @@ Per package:
 ```bash
 npm run lint --workspace=@scmp/client
 npm run lint --workspace=@scmp/server
+npm run lint --workspace=@scmp/shared
 ```
 
 ## Shared types
