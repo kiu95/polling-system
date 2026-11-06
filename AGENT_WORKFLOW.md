@@ -1,6 +1,6 @@
 # Agent workflow
 
-How the coding assistant was guided on this repo, and which of its choices had to be corrected. Written 2026-11-06, during the local scaffold ([issue #1](https://github.com/kiu95/scmp-polling-system/issues/1)). Docker, the vote API, and the critical test suite are still [issue #5](https://github.com/kiu95/scmp-polling-system/issues/5) and [issue #2](https://github.com/kiu95/scmp-polling-system/issues/2). This file records what already happened. It is not a claim that those later issues are done.
+How the coding assistant was guided on this repo, and which of its choices had to be corrected. Written 2026-11-06, during the local scaffold ([issue #1](https://github.com/kiu95/scmp-polling-system/issues/1)). Backend work for [issue #2](https://github.com/kiu95/scmp-polling-system/issues/2) is recorded below in the prompt strategy. Docker Compose, deliverable polish, and the broader critical-test expectations are still [issue #5](https://github.com/kiu95/scmp-polling-system/issues/5). This file records what already happened. It is not a claim that open GitHub issues are closed until the repo or issue says so.
 
 ## Prompt strategy
 
@@ -16,11 +16,18 @@ The product spec and GitHub issues are the source of scope. The assistant does n
 8. **Sixth todo (root scripts).** User said `go remaining todo`. Scope was root `package.json` scripts: `dev` runs server and client with `concurrently`, `predev` builds `@scmp/shared`, `build` builds shared then server then client, `test` runs both workspaces, `seed` delegates to the server. README updated for the one-command flow.
 9. **Biome.** User asked to add Biome for linting and formatting on `client` and `server`. Later the same user asked to include [`shared/`](shared/) in root `lint` / `lint:fix` and matching scripts on `@scmp/shared`.
 10. **PR #6 review (pre-merge).** Review pasted in chat: add Node `engines` and README Node version; `pretest` builds shared; CORS comment for local-only
+11. **[GitHub issue #2](https://github.com/kiu95/scmp-polling-system/issues/2) — backend poll / vote / results (plan todos).** Delivered in order; user drove with `go 1st todo item` through `remaining todo`.
+    - **Shared types** ([`shared/src/index.ts`](shared/src/index.ts)): `VoteAccepted`, `PollResultOption`, `PollResults`. Property-sort order (`pollId` before `optionId`; `total` before `pollId`; `count` before `label`). Nothing else in that slice.
+    - **DB** ([`server/src/db.ts`](server/src/db.ts)): `busy_timeout`, `insertVote` in a transaction (unique `(user_id, poll_id)` → `already_voted`), `getResults` via `COUNT` and one-decimal percentage. No stored vote counter.
+    - **Instability** ([`server/src/vote-instability.ts`](server/src/vote-instability.ts), [`server/src/index.ts`](server/src/index.ts), config on `buildApp`): `voteInstabilityFromEnv` (on unless `VOTE_INSTABILITY=off`), `applyVoteInstability` (~`VOTE_FAILURE_RATE`, then half fail / half delay). Tests default omitted config so they do not roll the sim until routes opt in with injected config.
+    - **Routes** ([`server/src/app.ts`](server/src/app.ts)): `POST /vote` (`x-user-id`, body `optionId`); instability runs before `insertVote`; `GET /results`. Statuses: `200` / `400` (`invalid_user_id`, `invalid_option_id`, `invalid_option`) / `404` (`no_active_poll`) / `409` (`already_voted`) / `500` (`simulated_failure`). That slice did not add `vote.test.ts`, README, or Vite proxy.
+    - **Tests + docs** ([`server/src/vote.test.ts`](server/src/vote.test.ts), [`README.md`](README.md), this file): Vitest covers happy path, `409`, 100 parallel users same option, parallel duplicate user, validation, empty DB, forced `500` and delay. README: curls, env (`VOTE_INSTABILITY`, `VOTE_FAILURE_RATE`, `VOTE_DELAY_MS`), note Vite still proxies only `/health` and `/poll` until issue #3. No [`client/vite.config.ts`](client/vite.config.ts) proxy for `/vote` or `/results`.
+12. **PR #7 review.** User pasted the review. Scope: run eligibility (`assessVote`) before `applyVoteInstability`, so a second vote, a bad option, and a missing poll stay `409` / `400` / `404` while chaos is on; `simulated_failure` only when the insert would otherwise succeed. Removed unused `app.decorate('voteInstability')`. README puts `VOTE_INSTABILITY=off` on the vote curl. Test: already-voted user plus a forced-fail config still returns `409` and does not roll. Happy-path results assert zero-vote percentages and `100` after one vote.
 
 ## What was built under that strategy
 
 - Root `.gitignore`, `README.md`, and an npm workspace for `@scmp/shared` (`ActivePoll`, `PollOption`).
-- `@scmp/server`: Fastify `GET /health` and `GET /poll`, CORS, SQLite file `server/data/poll.db`, WAL, foreign keys, schema for `polls` / `options` / `votes`, seed of `poll-1` only when that id is missing, Vitest smoke in `server/src/app.test.ts` (in-memory DB).
+- `@scmp/server`: Fastify `GET /health`, `GET /poll`, `GET /results`, `POST /vote` (instability on vote only), CORS, SQLite file `server/data/poll.db`, WAL, foreign keys, schema for `polls` / `options` / `votes`, seed of `poll-1` only when that id is missing, Vitest in `server/src/app.test.ts` and `server/src/vote.test.ts` (in-memory DB).
 - `@scmp/client`: Vite React page. Empty `VITE_API_URL` uses the dev proxy. The page shows health OK, the seed question, and option labels. No vote control.
 - Root scripts: `npm run dev`, `npm test`, `npm run build`, `npm run seed`, `npm run lint` / `npm run lint:fix` (see [`package.json`](package.json)). Root [`package.json`](package.json) has `"engines": { "node": ">=24" }`; [`.nvmrc`](.nvmrc) pins 24 for nvm. `pretest` runs `build` on `@scmp/shared` so `npm test` works without a manual shared build.
 - Verified on this machine: second seed still leaves 1 poll and 3 options; `GET /health` returns `{"ok":true}`; `GET /poll` returns the seed question and Web / App / Print; `journal_mode` is `wal`. Browser at `http://127.0.0.1:5173/` showed Health OK, “Which format do you read most?”, and Web / App / Print.
@@ -77,16 +84,20 @@ Symptom: first draft of the Requirements section linked the wrong package name. 
 
 Symptom: Fastify logs show `GET /`, `GET /json/version` on 3000 right after `npm run dev` from tooling. Cause: harmless probes, not in the user-facing flow. Fix: none. If those 404 lines are noisy later, turn down server log level or filter probes.
 
+### Instability ran before the duplicate-vote check
+
+Symptom: with `VOTE_INSTABILITY` left on, a second vote from the same user could return `500 simulated_failure` instead of `409 already_voted`. Unknown options and a missing poll had the same gap. Cause: `POST /vote` called `applyVoteInstability` before `insertVote`, so chaos applied to requests that were never going to insert. Fix: `assessVote` first; instability only after that returns ok; `insertVote` still enforces the unique constraint for races. Test covers the already-voted plus forced-fail path. Assistant fixed after the PR #7 review; the user did not edit it by hand.
+
 ### `npm audit` after Vitest
 
 Symptom: `npm install` pulled Vitest and reported `3 vulnerabilities (1 moderate, 2 critical)` in transitive packages. Cause: new dev dependency tree, not triaged here. Fix: none in this slice; run `npm audit` locally before production or pin overrides if needed.
 
 ## Edge cases deliberately left in place
 
-- **Empty `votes` table.** Unique `(user_id, poll_id)` is schema for issue #2. There is no vote route, no user id, and no failure simulation. A reviewer who calls `POST /vote` will get Fastify's 404. That is intended.
+- **Empty `votes` table on first boot.** Unique `(user_id, poll_id)` is enforced by SQLite. Vote and results routes exist; see [`README.md`](README.md) and [`server/src/vote.test.ts`](server/src/vote.test.ts).
 - **Seed is idempotent on poll id only.** Restarting, or running `npm run seed` twice, does not insert a second `poll-1`. Editing the question in code and restarting will **not** update the row already stored. The seed is insert-if-missing, not upsert.
 - **npm warned that install scripts were not approved** (`better-sqlite3`, `esbuild`, `allowScripts`). The 12.11.1 prebuild still loaded. If a later `npm install` skips the install script entirely, `require` of `better-sqlite3` will fail until the script is allowed or the binary is rebuilt.
 
 ## Still not done
 
-Vote and results APIs, optimistic UI, HTTP polling of results, the race-condition test, and Docker Compose. Those stay on issues #2, #3, #4, and #5.
+Optimistic UI, HTTP polling of results from the browser, and Docker Compose. Those stay on issues #3, #4, and #5.

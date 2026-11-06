@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { ActivePoll } from '@scmp/shared';
+import type { ActivePoll, PollResults } from '@scmp/shared';
 import BetterSqlite3 from 'better-sqlite3';
 
 export type SqliteDatabase = BetterSqlite3.Database;
@@ -19,6 +20,23 @@ interface SeedOption {
   id: string;
   label: string;
 }
+
+interface ResultRow {
+  id: string;
+  count: number;
+  label: string;
+}
+
+export interface InsertVoteInput {
+  userId: string;
+  optionId: string;
+}
+
+export type VoteRejectReason = 'already_voted' | 'invalid_option' | 'no_active_poll';
+
+export type InsertVoteResult =
+  | { ok: true; pollId: string; optionId: string }
+  | { ok: false; reason: VoteRejectReason };
 
 const SEED_POLL = {
   id: 'poll-1',
@@ -39,6 +57,7 @@ export function openDatabase(filename: string): SqliteDatabase {
   const db = new BetterSqlite3(filename);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
+  db.pragma('busy_timeout = 5000');
   return db;
 }
 
@@ -108,5 +127,111 @@ export function getActivePoll(db: SqliteDatabase): ActivePoll | null {
     id: poll.id,
     question: poll.question,
     options,
+  };
+}
+
+function getActivePollId(db: SqliteDatabase): string | null {
+  const poll = db.prepare('SELECT id FROM polls WHERE is_active = 1 ORDER BY id LIMIT 1').get() as
+    | { id: string }
+    | undefined;
+  return poll?.id ?? null;
+}
+
+function isUniqueConstraint(error: unknown): boolean {
+  return error instanceof BetterSqlite3.SqliteError && error.code === 'SQLITE_CONSTRAINT_UNIQUE';
+}
+
+function votePercentage(count: number, total: number): number {
+  if (total === 0) {
+    return 0;
+  }
+  // One decimal. Rounded shares of one total can sum to 99.9 or 100.1.
+  return Math.round((count / total) * 1000) / 10;
+}
+
+export function assessVote(db: SqliteDatabase, input: InsertVoteInput): InsertVoteResult {
+  const pollId = getActivePollId(db);
+  if (!pollId) {
+    return { ok: false, reason: 'no_active_poll' };
+  }
+
+  const option = db
+    .prepare('SELECT id FROM options WHERE id = ? AND poll_id = ?')
+    .get(input.optionId, pollId);
+  if (!option) {
+    return { ok: false, reason: 'invalid_option' };
+  }
+
+  const existing = db
+    .prepare('SELECT id FROM votes WHERE user_id = ? AND poll_id = ?')
+    .get(input.userId, pollId);
+  if (existing) {
+    return { ok: false, reason: 'already_voted' };
+  }
+
+  return { ok: true, pollId: pollId, optionId: input.optionId };
+}
+
+export function insertVote(db: SqliteDatabase, input: InsertVoteInput): InsertVoteResult {
+  const findOption = db.prepare('SELECT id FROM options WHERE id = ? AND poll_id = ?');
+  const insert = db.prepare(
+    'INSERT INTO votes (id, poll_id, option_id, user_id) VALUES (?, ?, ?, ?)',
+  );
+
+  const run = db.transaction((): InsertVoteResult => {
+    const pollId = getActivePollId(db);
+    if (!pollId) {
+      return { ok: false, reason: 'no_active_poll' };
+    }
+
+    const option = findOption.get(input.optionId, pollId);
+    if (!option) {
+      return { ok: false, reason: 'invalid_option' };
+    }
+
+    try {
+      insert.run(randomUUID(), pollId, input.optionId, input.userId);
+    } catch (error) {
+      if (isUniqueConstraint(error)) {
+        return { ok: false, reason: 'already_voted' };
+      }
+      throw error;
+    }
+
+    return { ok: true, pollId: pollId, optionId: input.optionId };
+  });
+
+  return run();
+}
+
+export function getResults(db: SqliteDatabase): PollResults | null {
+  const pollId = getActivePollId(db);
+  if (!pollId) {
+    return null;
+  }
+
+  // GROUP BY o.id only: SQLite treats label and position as dependent on the primary key.
+  // A Postgres port must group those columns too.
+  const rows = db
+    .prepare(
+      `SELECT o.id AS id, o.label AS label, COUNT(v.id) AS count
+       FROM options o
+       LEFT JOIN votes v ON v.option_id = o.id AND v.poll_id = o.poll_id
+       WHERE o.poll_id = ?
+       GROUP BY o.id
+       ORDER BY o.position ASC, o.id ASC`,
+    )
+    .all(pollId) as ResultRow[];
+
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
+  return {
+    total,
+    pollId,
+    options: rows.map((row) => ({
+      id: row.id,
+      count: row.count,
+      label: row.label,
+      percentage: votePercentage(row.count, total),
+    })),
   };
 }

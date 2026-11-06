@@ -36,7 +36,7 @@ API on 3000 and Vite on 5173 together. `predev` builds [`shared/`](shared/) so s
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Leave `VITE_API_URL` empty so Vite proxies `/health` and `/poll` to the API. See [`client/.env.example`](client/.env.example).
+Open `http://127.0.0.1:5173`. Leave `VITE_API_URL` empty so Vite proxies `/health` and `/poll` to the API. The browser page only fetches those two paths until [issue #3](https://github.com/kiu95/scmp-polling-system/issues/3). Call `/vote` and `/results` with `curl` or set `VITE_API_URL` to `http://127.0.0.1:3000` after you add a proxy entry. See [`client/.env.example`](client/.env.example).
 
 ## Run one package only
 
@@ -56,9 +56,38 @@ npm run seed
 ```bash
 curl -s http://127.0.0.1:3000/health
 curl -s http://127.0.0.1:3000/poll
+curl -s http://127.0.0.1:3000/results
+```
+
+`POST /vote` is unstable by default (about 15% `500` or a ~3s wait). Start the API with `VOTE_INSTABILITY=off` before this curl if you want a stable `200`:
+
+```bash
+VOTE_INSTABILITY=off npm run dev --workspace=@scmp/server
+curl -s -X POST http://127.0.0.1:3000/vote \
+  -H 'Content-Type: application/json' \
+  -H 'x-user-id: demo-user' \
+  -d '{"optionId":"opt-web"}'
 ```
 
 `GET /health` returns `{ "ok": true }`. `GET /poll` returns the seeded active poll (`poll-1`) and its options. Restarting the server does not duplicate that poll.
+
+`GET /results` returns vote counts and one-decimal percentages per option. Rounded shares of one total can add up to `99.9` or `100.1`.
+
+`POST /vote` expects JSON `{ "optionId": "<id>" }` and a non-empty `x-user-id` header (mock user, up to 128 characters after trim). Success is `200` with `{ "pollId", "optionId" }`. Same user and poll again returns `409` with `{ "error": "already_voted" }`. A bad option is `400`. No active poll is `404`. Those responses are stable; the failure simulation runs only after the vote would otherwise be stored.
+
+### Vote instability (local practice)
+
+By default the server enables **unstable vote submits** for frontend rollback drills (see [issue #2](https://github.com/kiu95/scmp-polling-system/issues/2)): about **15%** of votes that pass validation either return **`500`** with `{ "error": "simulated_failure" }` (no row written) or **wait about 3 seconds** then succeed. Duplicate votes, unknown options, and a missing poll stay `409` / `400` / `404`.
+
+Turn it off for predictable curls and tests:
+
+| Variable | Meaning | Default |
+| -------- | ------- | ------- |
+| `VOTE_INSTABILITY` | Set to `off` to disable the simulation | on |
+| `VOTE_FAILURE_RATE` | Fraction of votes that enter the unstable path (`0`–`1`) | `0.15` |
+| `VOTE_DELAY_MS` | Delay in ms when the unstable path chooses wait-then-success | `3000` |
+
+The vote curl above uses the same `VOTE_INSTABILITY=off` switch.
 
 ## Build
 
@@ -73,7 +102,7 @@ npm run start --workspace=@scmp/server
 npm test
 ```
 
-`pretest` builds `@scmp/shared` so workspace tests resolve types and package exports. Server tests use an in-memory database (no `server/data/poll.db`). Client tests cover the API URL helper only.
+`pretest` builds `@scmp/shared` so workspace tests resolve types and package exports. Server tests use an in-memory database (no `server/data/poll.db`), including concurrent vote injects in [`server/src/vote.test.ts`](server/src/vote.test.ts). Client tests cover the API URL helper only.
 
 ## Typecheck
 
