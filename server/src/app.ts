@@ -1,7 +1,15 @@
 import cors from '@fastify/cors';
 import type { VoteAccepted } from '@scmp/shared';
+import type { FastifyReply } from 'fastify';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { getActivePoll, getResults, insertVote, type SqliteDatabase } from './db.js';
+import {
+  assessVote,
+  getActivePoll,
+  getResults,
+  insertVote,
+  type SqliteDatabase,
+  type VoteRejectReason,
+} from './db.js';
 import {
   applyVoteInstability,
   DISABLED_VOTE_INSTABILITY,
@@ -10,12 +18,6 @@ import {
 
 interface VoteBody {
   optionId?: unknown;
-}
-
-declare module 'fastify' {
-  interface FastifyInstance {
-    voteInstability: VoteInstabilityConfig;
-  }
 }
 
 interface BuildAppOptions {
@@ -46,13 +48,27 @@ function normalizeOptionId(raw: unknown): string | null {
   return trimmed;
 }
 
+function sendVoteRejection(reply: FastifyReply, reason: VoteRejectReason): FastifyReply {
+  switch (reason) {
+    case 'already_voted':
+      return reply.code(409).send({ error: 'already_voted' });
+    case 'invalid_option':
+      return reply.code(400).send({ error: 'invalid_option' });
+    case 'no_active_poll':
+      return reply.code(404).send({ error: 'no_active_poll' });
+    default: {
+      const unreachable: never = reason;
+      return unreachable;
+    }
+  }
+}
+
 export async function buildApp(
   db: SqliteDatabase,
   options: BuildAppOptions = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({ logger: options.logger ?? false });
   const voteInstability = options.voteInstability ?? DISABLED_VOTE_INSTABILITY;
-  app.decorate('voteInstability', voteInstability);
   // Local dev only: reflect any Origin (fine for 127.0.0.1). Tighten to an allowlist before Docker / exposed ports — see issue #5.
   await app.register(cors, { origin: true });
 
@@ -85,6 +101,11 @@ export async function buildApp(
       return reply.code(400).send({ error: 'invalid_option_id' });
     }
 
+    const eligibility = assessVote(db, { userId, optionId });
+    if (!eligibility.ok) {
+      return sendVoteRejection(reply, eligibility.reason);
+    }
+
     const outcome = await applyVoteInstability(voteInstability);
     if (outcome === 'fail') {
       return reply.code(500).send({ error: 'simulated_failure' });
@@ -92,13 +113,7 @@ export async function buildApp(
 
     const result = insertVote(db, { userId, optionId });
     if (!result.ok) {
-      if (result.reason === 'already_voted') {
-        return reply.code(409).send({ error: 'already_voted' });
-      }
-      if (result.reason === 'invalid_option') {
-        return reply.code(400).send({ error: 'invalid_option' });
-      }
-      return reply.code(404).send({ error: 'no_active_poll' });
+      return sendVoteRejection(reply, result.reason);
     }
 
     const body: VoteAccepted = { pollId: result.pollId, optionId: result.optionId };

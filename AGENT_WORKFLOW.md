@@ -22,6 +22,7 @@ The product spec and GitHub issues are the source of scope. The assistant does n
     - **Instability** ([`server/src/vote-instability.ts`](server/src/vote-instability.ts), [`server/src/index.ts`](server/src/index.ts), config on `buildApp`): `voteInstabilityFromEnv` (on unless `VOTE_INSTABILITY=off`), `applyVoteInstability` (~`VOTE_FAILURE_RATE`, then half fail / half delay). Tests default omitted config so they do not roll the sim until routes opt in with injected config.
     - **Routes** ([`server/src/app.ts`](server/src/app.ts)): `POST /vote` (`x-user-id`, body `optionId`); instability runs before `insertVote`; `GET /results`. Statuses: `200` / `400` (`invalid_user_id`, `invalid_option_id`, `invalid_option`) / `404` (`no_active_poll`) / `409` (`already_voted`) / `500` (`simulated_failure`). That slice did not add `vote.test.ts`, README, or Vite proxy.
     - **Tests + docs** ([`server/src/vote.test.ts`](server/src/vote.test.ts), [`README.md`](README.md), this file): Vitest covers happy path, `409`, 100 parallel users same option, parallel duplicate user, validation, empty DB, forced `500` and delay. README: curls, env (`VOTE_INSTABILITY`, `VOTE_FAILURE_RATE`, `VOTE_DELAY_MS`), note Vite still proxies only `/health` and `/poll` until issue #3. No [`client/vite.config.ts`](client/vite.config.ts) proxy for `/vote` or `/results`.
+12. **PR #7 review.** User pasted the review. Scope: run eligibility (`assessVote`) before `applyVoteInstability`, so a second vote, a bad option, and a missing poll stay `409` / `400` / `404` while chaos is on; `simulated_failure` only when the insert would otherwise succeed. Removed unused `app.decorate('voteInstability')`. README puts `VOTE_INSTABILITY=off` on the vote curl. Test: already-voted user plus a forced-fail config still returns `409` and does not roll. Happy-path results assert zero-vote percentages and `100` after one vote.
 
 ## What was built under that strategy
 
@@ -82,6 +83,10 @@ Symptom: first draft of the Requirements section linked the wrong package name. 
 ### Root `dev` accepts extra `GET` probes to port 3000
 
 Symptom: Fastify logs show `GET /`, `GET /json/version` on 3000 right after `npm run dev` from tooling. Cause: harmless probes, not in the user-facing flow. Fix: none. If those 404 lines are noisy later, turn down server log level or filter probes.
+
+### Instability ran before the duplicate-vote check
+
+Symptom: with `VOTE_INSTABILITY` left on, a second vote from the same user could return `500 simulated_failure` instead of `409 already_voted`. Unknown options and a missing poll had the same gap. Cause: `POST /vote` called `applyVoteInstability` before `insertVote`, so chaos applied to requests that were never going to insert. Fix: `assessVote` first; instability only after that returns ok; `insertVote` still enforces the unique constraint for races. Test covers the already-voted plus forced-fail path. Assistant fixed after the PR #7 review; the user did not edit it by hand.
 
 ### `npm audit` after Vitest
 

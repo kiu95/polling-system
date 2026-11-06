@@ -28,6 +28,17 @@ describe('POST /vote and GET /results', () => {
   });
 
   it('accepts a vote and GET /results reflects count', async () => {
+    const before = await app.inject({ method: 'GET', url: '/results' });
+    expect(before.statusCode).toBe(200);
+    const empty = before.json() as {
+      total: number;
+      options: Array<{ count: number; percentage: number }>;
+    };
+    expect(empty.total).toBe(0);
+    expect(empty.options.every((option) => option.count === 0 && option.percentage === 0)).toBe(
+      true,
+    );
+
     const vote = await app.inject({
       headers: jsonHeaders('user-a'),
       method: 'POST',
@@ -42,12 +53,17 @@ describe('POST /vote and GET /results', () => {
     const body = results.json() as {
       pollId: string;
       total: number;
-      options: Array<{ id: string; count: number }>;
+      options: Array<{ id: string; count: number; percentage: number }>;
     };
     expect(body.pollId).toBe('poll-1');
     expect(body.total).toBe(1);
     const web = body.options.find((option) => option.id === 'opt-web');
-    expect(web?.count).toBe(1);
+    expect(web).toEqual({ id: 'opt-web', count: 1, label: 'Web', percentage: 100 });
+    expect(
+      body.options
+        .filter((option) => option.id !== 'opt-web')
+        .every((option) => option.count === 0 && option.percentage === 0),
+    ).toBe(true);
   });
 
   it('returns 409 when the same user votes again', async () => {
@@ -188,6 +204,39 @@ describe('POST /vote and GET /results', () => {
     const results = await app.inject({ method: 'GET', url: '/results' });
     expect(results.statusCode).toBe(404);
     expect(results.json()).toEqual({ error: 'no_active_poll' });
+  });
+
+  it('keeps 409 when instability would otherwise fail a second vote', async () => {
+    const first = await app.inject({
+      headers: jsonHeaders('user-voted'),
+      method: 'POST',
+      payload: votePayload('opt-web'),
+      url: '/vote',
+    });
+    expect(first.statusCode).toBe(200);
+
+    await app.close();
+    const random = vi.fn(() => 0);
+    const voteInstability: VoteInstabilityConfig = {
+      rate: 1,
+      delayMs: 1,
+      enabled: true,
+      random,
+    };
+    app = await buildApp(db, { logger: false, voteInstability });
+
+    const again = await app.inject({
+      headers: jsonHeaders('user-voted'),
+      method: 'POST',
+      payload: votePayload('opt-app'),
+      url: '/vote',
+    });
+    expect(again.statusCode).toBe(409);
+    expect(again.json()).toEqual({ error: 'already_voted' });
+    expect(random).not.toHaveBeenCalled();
+
+    const rows = db.prepare('SELECT COUNT(*) AS n FROM votes').get() as { n: number };
+    expect(rows.n).toBe(1);
   });
 
   it('returns 500 without inserting when instability chooses fail', async () => {

@@ -32,9 +32,11 @@ export interface InsertVoteInput {
   optionId: string;
 }
 
+export type VoteRejectReason = 'already_voted' | 'invalid_option' | 'no_active_poll';
+
 export type InsertVoteResult =
   | { ok: true; pollId: string; optionId: string }
-  | { ok: false; reason: 'already_voted' | 'invalid_option' | 'no_active_poll' };
+  | { ok: false; reason: VoteRejectReason };
 
 const SEED_POLL = {
   id: 'poll-1',
@@ -143,7 +145,31 @@ function votePercentage(count: number, total: number): number {
   if (total === 0) {
     return 0;
   }
+  // One decimal. Rounded shares of one total can sum to 99.9 or 100.1.
   return Math.round((count / total) * 1000) / 10;
+}
+
+export function assessVote(db: SqliteDatabase, input: InsertVoteInput): InsertVoteResult {
+  const pollId = getActivePollId(db);
+  if (!pollId) {
+    return { ok: false, reason: 'no_active_poll' };
+  }
+
+  const option = db
+    .prepare('SELECT id FROM options WHERE id = ? AND poll_id = ?')
+    .get(input.optionId, pollId);
+  if (!option) {
+    return { ok: false, reason: 'invalid_option' };
+  }
+
+  const existing = db
+    .prepare('SELECT id FROM votes WHERE user_id = ? AND poll_id = ?')
+    .get(input.userId, pollId);
+  if (existing) {
+    return { ok: false, reason: 'already_voted' };
+  }
+
+  return { ok: true, pollId: pollId, optionId: input.optionId };
 }
 
 export function insertVote(db: SqliteDatabase, input: InsertVoteInput): InsertVoteResult {
@@ -184,6 +210,8 @@ export function getResults(db: SqliteDatabase): PollResults | null {
     return null;
   }
 
+  // GROUP BY o.id only: SQLite treats label and position as dependent on the primary key.
+  // A Postgres port must group those columns too.
   const rows = db
     .prepare(
       `SELECT o.id AS id, o.label AS label, COUNT(v.id) AS count
