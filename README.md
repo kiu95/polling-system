@@ -75,9 +75,19 @@ npm test
 
 `pretest` builds `@scmp/shared` so workspace tests resolve types and package exports. Server tests use an in-memory database (no `server/data/poll.db`). Client tests cover the API URL helper only.
 
+## Typecheck
+
+Builds [`shared/`](shared/) (for `dist/*.d.ts` that other packages consume), then runs `tsc --noEmit` in [`server/`](server/) and [`client/`](client/).
+
+```bash
+npm run typecheck
+```
+
 ## Lint and format
 
-Biome checks `client/`, `server/`, and `shared/` (see [`biome.json`](biome.json): 2-space indent, width 100, single quotes, semicolons).
+Biome checks `client/`, `server/`, `shared/`, and [`scripts/`](scripts/) (see [`biome.json`](biome.json): 2-space indent, width 100, single quotes, semicolons).
+
+[Husky](https://typicode.github.io/husky/) runs **`npm run typecheck`** then **[lint-staged](https://github.com/lint-staged/lint-staged)** on **pre-commit** (see [`.husky/pre-commit`](.husky/pre-commit)). lint-staged runs Biome on staged `*.ts` / `*.tsx` and runs Vitest **related** tests for staged files under `client/src` and `server/src` (see [`scripts/lint-staged-vitest-related.mjs`](scripts/lint-staged-vitest-related.mjs)); any staged `shared/**/*.ts` runs **both** workspace test suites. Fresh clones run `prepare` after `npm install`, which points Git at [`.husky/_`](.husky/_).
 
 ```bash
 npm run lint
