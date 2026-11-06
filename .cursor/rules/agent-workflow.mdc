@@ -1,0 +1,40 @@
+---
+description: Update AGENT_WORKFLOW.md with prompt strategy and AI defects after each work slice
+alwaysApply: true
+---
+
+# AGENT_WORKFLOW.md
+
+After each implemented slice, bugfix, or correction of assistant output, update repo-root `AGENT_WORKFLOW.md` in the same change. The file is the assignment record of AI use on this task. Write normal prose. Record only what happened.
+
+Keep the two sections below. Append. Do not rewrite older entries.
+
+## Prompt strategy
+
+Answers: "What prompt strategy did you use?"
+
+Append how this slice was scoped:
+
+- Which issue, spec section, or user instruction set the scope.
+- What the user allowed (`go`, a todo slice, an explicit file).
+- What stayed out of scope.
+
+## Defects the assistant introduced
+
+Answers: "What bugs, architectural flaws, or edge cases did the AI generate that you had to manually audit and fix?"
+
+Append only defects the assistant produced that a run, a review, or a user correction caught. For each one: symptom, cause, fix, and whether the user changed it by hand or the assistant fixed it after the failure. If nothing failed, add no entry.
+
+```markdown
+### `better-sqlite3` 11 does not install on Node 24
+
+Pinned `^11.8.1`. `npm install` on Node 24.22.1 found no prebuild and failed to compile (`climits` not found). Moved the pin to `^12.6.2` (installed 12.11.1) without asking. The prebuild loaded; health and poll checks passed.
+```
+
+Do not write "the AI followed best practices" with no concrete failure.
+
+## Do not
+
+- Mark issue #5 done because this file exists.
+- Log planned work as if it already happened.
+- Paste transcripts, tool logs, or secrets.
