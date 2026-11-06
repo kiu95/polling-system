@@ -1,0 +1,63 @@
+---
+description: TypeScript, naming, formatting, and coding conventions
+alwaysApply: true
+---
+
+# Code style
+
+## TypeScript
+
+- Strict typing — avoid `any`.
+- Use discriminated unions for events and commands (`GameEventType`, `GameCommand`).
+- Prefer `interface` for object shapes; `type` for unions and aliases.
+- `verbatimModuleSyntax`: use `import type` for type-only imports.
+- Immutable updates — spread/clone; never mutate props, Redux state, or replay inputs.
+
+## Naming
+
+| Kind | Convention | Examples |
+|------|------------|----------|
+| React components | PascalCase file + export | `ScorekeepingPanel.tsx`, `ErrorRecordDialog.tsx` |
+| Hooks | camelCase, `use` prefix | `useGameSession.ts` |
+| Domain/engine modules | kebab-case or camelCase | `applyEvent.ts`, `game-state-helpers.ts` |
+| Types / interfaces | PascalCase | `GameState`, `ErrorCredits`, `SubGameEvent` |
+| Functions / variables | camelCase | `applyEvent`, `recordRunnerAdvancedOnError` |
+| Constants | UPPER_SNAKE or camelCase | `DEFAULT_STRIKEOUT_FIELDING`, `PITCH_EVENT_TYPES` |
+| Test files | `*.test.ts` / `*.test.tsx` colocated with source | `applyEvent.test.ts` |
+| Event type strings | SCREAMING_SNAKE | `'RUNNER_ADVANCED'`, `'FIELDING_ERROR'` |
+
+## Imports
+
+- Use `@/` path alias — not deep relative paths across layers.
+- Biome organizes imports on save (`biome check --write`).
+- Prefer direct MUI imports when practical: `@mui/material/Button` over barrel `@mui/material`.
+
+## Formatting (Biome)
+
+- 2-space indent, line width 100.
+- Single quotes, semicolons always.
+- Run `npm run lint` before commit; `npm run lint:fix` to auto-fix.
+
+## React
+
+- Functional components only — type as `FC<Props>` (see `react-component-style` rule).
+- Property lists sorted per `property-sort` rule (variables → shorter → alpha).
+- Session reads: `useAppSelector(selectGameSession)` — not RTK Query hooks for display state.
+- Writes: `useGameSession()` command helpers or `dispatch` with `GameCommand`.
+- Keep files under **500 LOC** — split when larger.
+
+## Layer boundaries
+
+| Layer | May import from | Must not |
+|-------|-----------------|----------|
+| `domain/engine/` | `domain/` only | Redux, Dexie, React, MUI |
+| `domain/types/` | `domain/types` only | `domain/engine/` (logic belongs in engine) |
+| `validation/` | `domain/types` (types only), Zod | `persistence/` entity types, Redux, Dexie |
+| `persistence/` | `domain/types` | Redux, `validation/` |
+| `application/` | `domain/`, `persistence/` | React components |
+| `hooks/` | `store/`, `domain/commands`, `domain/types` | Direct Dexie |
+| `components/` | `hooks/`, `domain/types` (types only), MUI | Direct Dexie, `applyEvent` |
+
+`persistence/record-schemas.ts` duplicates the UUID v4 check locally (`z.uuidv4`) instead of importing `@/validation/id-schema` — intentional so persistence stays free of the validation layer.
+
+Domain logic changes belong in `src/domain/engine/` with tests in `*.test.ts` beside the module.

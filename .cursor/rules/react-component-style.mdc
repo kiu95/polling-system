@@ -1,0 +1,46 @@
+---
+description: Type React functional components with FC<Props>
+alwaysApply: true
+---
+
+# React component style
+
+## Always type components with `FC<Props>`
+
+When declaring a React functional component, type it with `FC<Props>` from `react` — not inline props on a `function` declaration.
+
+Prefer:
+
+```tsx
+import type { FC } from 'react';
+
+interface FieldingStatsTableProps {
+  title: string;
+  rows: Array<{ playerId: string; label: string; stats: PlayerGameStats }>;
+}
+
+export const FieldingStatsTable: FC<FieldingStatsTableProps> = ({ title, rows }) => {
+  // ...
+};
+```
+
+Avoid:
+
+```tsx
+interface FieldingStatsTableProps {
+  title: string;
+  rows: Array<{ playerId: string; label: string; stats: PlayerGameStats }>;
+}
+
+export function FieldingStatsTable({ title, rows }: FieldingStatsTableProps) {
+  // ...
+}
+```
+
+Applies to exported components and file-local helpers/sub-components.
+
+## Notes
+
+- Import `FC` as type-only: `import type { FC } from 'react'` (or add `FC` to an existing `import type` from `react`).
+- Declare props interface/type above the component, named `<ComponentName>Props`.
+- Same convention for default and named exports.

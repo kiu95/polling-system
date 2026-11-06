@@ -1,0 +1,11 @@
+---
+description: Git and Version Control Rules
+alwaysApply: true
+---
+
+# Git and Version Control Rules
+- You must always use the local Git CLI for version control tasks (e.g., checking status, staging, committing).
+- Never use external GitHub MCP tools or look for custom API plugins for standard repository operations.
+- Always check `git status` or `git diff` before committing to ensure only intended files are changed.
+- Write clear, concise imperative-tone commit messages.
+- DO NOT execute `git push` or `git remote` operations automatically unless explicitly requested by the user.

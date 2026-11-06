@@ -1,0 +1,72 @@
+---
+description: Sort properties in interfaces, destructures, JSX props, and object literals
+alwaysApply: true
+---
+
+# Property sort
+
+## Ordering rules
+
+When writing any property list, sort entries by this priority (in order):
+
+1. **Variables before functions** — value props before callback/handler props. A property is a "function" if its name starts with a verb prefix (`on`, `handle`, `render`, `get`, `set`, `fetch`, `load`) or its TypeScript type is a function signature. Everything else is a variable.
+2. **Fewer characters first** — count the full text of the property entry, including any default value and surrounding spaces (e.g. `label = 'Date'` = 14 characters). Shorter entries sort earlier.
+3. **Alphabetical order** — when character counts match, sort case-insensitive alphabetically.
+
+## Where to apply
+
+- `interface` / `type` property definitions (including component `Props`)
+- JSX/TSX component props
+- Destructuring patterns (params and `const { ... } = ...`)
+- Returned object literals
+
+## Spread/rest
+
+- Do **not** force a universal top/bottom position for spreads.
+- Keep placement based on semantics and syntax:
+  - destructuring rest (`...rest`) stays where JS requires (typically last)
+  - object spread order must preserve runtime behavior
+
+## Examples
+
+### Props destructure (`FC<Props>`)
+
+```tsx
+export const FieldingStatsTable: FC<FieldingStatsTableProps> = ({
+  rows,   // variable
+  title,  // variable — same length as "rows"; "rows" < "title" alphabetically
+}) => { /* ... */ };
+
+export const DeleteConfirmDialog: FC<DeleteConfirmDialogProps> = ({
+  open,           // variable
+  entityLabel,    // variable
+  onClose,        // function
+  onConfirm,      // function — "onClose" < "onConfirm" alphabetically
+}) => { /* ... */ };
+```
+
+### Interface definition
+
+```tsx
+interface DeleteConfirmDialogProps {
+  open: boolean;
+  entityLabel: string;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+```
+
+### JSX usage
+
+```tsx
+<FieldingStatsTable title={awayTitle} rows={awayRows} />
+```
+
+### Returned object literals
+
+Same ordering for `return { ... }` — count full `key: value` text for character length. Do **not** reorder array destructure patterns (positional).
+
+## Notes
+
+- Character count is the **entry text as written**, including key, default, rename (`key: value`), and spacing around `=` / `:`.
+- Do not reorder array destructure patterns.
