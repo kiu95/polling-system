@@ -4,10 +4,10 @@ Local development — see [issue #1](https://github.com/kiu95/scmp-polling-syste
 
 ## Stack
 
-- **Frontend:** Vite + React + TypeScript (client scaffold still pending).
+- **Frontend:** Vite + React + TypeScript in [`client/`](client/).
 - **Backend:** Fastify + TypeScript + SQLite (`better-sqlite3`) in [`server/`](server/).
 
-## Ports (planned)
+## Ports
 
 | Service | Port |
 | ------- | ---- |
@@ -22,21 +22,28 @@ From the repository root:
 npm install
 ```
 
-## Run server
+## Run both (root)
 
-From the repository root (after `npm install` and `npm run build --workspace=@scmp/shared` so shared types exist):
+API on 3000 and Vite on 5173 together. `predev` builds [`shared/`](shared/) so server and client can resolve `@scmp/shared`.
+
+```bash
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. Leave `VITE_API_URL` empty so Vite proxies `/health` and `/poll` to the API. See [`client/.env.example`](client/.env.example).
+
+## Run one package only
 
 ```bash
 npm run dev --workspace=@scmp/server
+npm run dev --workspace=@scmp/client
 ```
 
-Or seed without staying up:
+Seed the on-disk DB without keeping the process up:
 
 ```bash
-npm run seed --workspace=@scmp/server
+npm run seed
 ```
-
-Client dev server is not in this slice yet. When it lands, Vite will be `http://127.0.0.1:5173`.
 
 ## Verify API
 
@@ -50,18 +57,17 @@ curl -s http://127.0.0.1:3000/poll
 ## Build
 
 ```bash
-npm run build --workspace=@scmp/shared
-npm run build --workspace=@scmp/server
+npm run build
 npm run start --workspace=@scmp/server
 ```
 
-## Test (server)
+## Test
 
 ```bash
-npm run test --workspace=@scmp/server
+npm test
 ```
 
-Uses Vitest against an in-memory database (no `server/data/poll.db`).
+Server tests use an in-memory database (no `server/data/poll.db`). Client tests cover the API URL helper only.
 
 ## Shared types
 
