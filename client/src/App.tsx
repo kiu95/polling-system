@@ -2,7 +2,6 @@ import type { ActivePoll } from '@scmp/shared';
 import { type FC, useEffect, useState } from 'react';
 import { apiUrl } from './api';
 
-
 type ViewState =
   | { status: 'loading' }
   | { message: string; status: 'error' }

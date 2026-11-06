@@ -17,7 +17,6 @@ Local development — see [issue #1](https://github.com/kiu95/scmp-polling-syste
 ## Requirements
 
 - **Node.js 24 or newer** — required by [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) (native prebuilds; older Node versions often fall back to a source compile that can fail). This repo is also verified on **Node.js 24.x** (darwin arm64).
-- Optional: place an [`.nvmrc`](.nvmrc) at the repo root and run `nvm use` before `npm install`.
 
 ## Install
 
