@@ -2,6 +2,7 @@
   "name": "scmp-polling-system",
   "private": true,
   "workspaces": [
+    "server",
     "shared"
   ]
 }

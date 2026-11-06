@@ -4,8 +4,8 @@ Local development — see [issue #1](https://github.com/kiu95/scmp-polling-syste
 
 ## Stack
 
-- **Frontend:** Vite + React + TypeScript (not wired in this repo slice until client scaffold lands).
-- **Backend:** Fastify + TypeScript + SQLite (`better-sqlite3`) (not wired until server scaffold lands).
+- **Frontend:** Vite + React + TypeScript (client scaffold still pending).
+- **Backend:** Fastify + TypeScript + SQLite (`better-sqlite3`) in [`server/`](server/).
 
 ## Ports (planned)
 
@@ -22,35 +22,46 @@ From the repository root:
 npm install
 ```
 
-## Run (when client + server exist)
+## Run server
 
-You will run the API and the dev server in separate terminals, or use the root `npm run dev` script once it is defined.
+From the repository root (after `npm install` and `npm run build --workspace=@scmp/shared` so shared types exist):
 
 ```bash
-# terminal 1 — API (planned)
-cd server && npm run dev
-
-# terminal 2 — client (planned)
-cd client && npm run dev
+npm run dev --workspace=@scmp/server
 ```
 
-Then open `http://127.0.0.1:5173` in a browser.
+Or seed without staying up:
 
-## Verify API (when server exists)
+```bash
+npm run seed --workspace=@scmp/server
+```
+
+Client dev server is not in this slice yet. When it lands, Vite will be `http://127.0.0.1:5173`.
+
+## Verify API
 
 ```bash
 curl -s http://127.0.0.1:3000/health
 curl -s http://127.0.0.1:3000/poll
 ```
 
-Expect `GET /health` to return JSON with `{ "ok": true }` and `GET /poll` to return the seeded active poll with options.
+`GET /health` returns `{ "ok": true }`. `GET /poll` returns the seeded active poll (`poll-1`) and its options. Restarting the server does not duplicate that poll.
 
-## Build & test (when packages exist)
+## Build
 
 ```bash
-npm run build
-npm run test
+npm run build --workspace=@scmp/shared
+npm run build --workspace=@scmp/server
+npm run start --workspace=@scmp/server
 ```
+
+## Test (server)
+
+```bash
+npm run test --workspace=@scmp/server
+```
+
+Uses Vitest against an in-memory database (no `server/data/poll.db`).
 
 ## Shared types
 
