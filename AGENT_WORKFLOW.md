@@ -60,6 +60,10 @@ Symptom: one test mixed row counts and both routes; a failure would not say whic
 
 Symptom: `http://127.0.0.1:5173/` refused the connection while `http://localhost:5173/` returned 200. Cause: Vite's default `localhost` bind on this Mac was `[::1]:5173` only. The README tells people to open `127.0.0.1`. Fix: `server.host: '127.0.0.1'` in `client/vite.config.ts`. The assistant found it by curling the documented URL and fixed it in the same slice. The user did not edit it.
 
+### `poll.db-shm` and `poll.db-wal` were committed by accident
+
+Symptom: `git status` showed tracked SQLite sidecar files under [`server/data/`](server/data/). Cause: local dev wrote WAL mode files; they were staged before `.gitignore` covered them. Fix: ignore `*.db-shm` and `*.db-wal`, `git rm --cached` those paths. Assistant fixed when opening the PR for #1.
+
 ### `biome.json` used a removed `files.ignore` key
 
 Symptom: `biome check` failed with “unknown key `ignore`”. Cause: Biome 2.6 expects `files.includes` with negated globs, not `ignore`. Fix: `npx biome migrate --write`.
