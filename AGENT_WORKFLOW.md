@@ -16,6 +16,7 @@ The product spec and GitHub issues are the source of scope. The assistant does n
 8. **Sixth todo (root scripts).** User said `go remaining todo`. Scope was root `package.json` scripts: `dev` runs server and client with `concurrently`, `predev` builds `@scmp/shared`, `build` builds shared then server then client, `test` runs both workspaces, `seed` delegates to the server. README updated for the one-command flow.
 9. **Biome.** User asked to add Biome for linting and formatting on `client` and `server`. Later the same user asked to include [`shared/`](shared/) in root `lint` / `lint:fix` and matching scripts on `@scmp/shared`.
 10. **PR #6 review (pre-merge).** Review pasted in chat: add Node `engines` and README Node version; `pretest` builds shared; CORS comment for local-only
+11. **Issue #2, first todo (shared types).** User said `go 1st todo item`. Scope was [`shared/src/index.ts`](shared/src/index.ts) only: `VoteAccepted`, `PollResultOption`, and `PollResults`. No routes, SQL, instability, tests, or README. Property order follows the property-sort rule (`pollId` before `optionId`; `total` before `pollId`; `count` before `label`).
 
 ## What was built under that strategy
 
