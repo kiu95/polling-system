@@ -37,27 +37,6 @@ function selectedId(phase: VotePhase): string | null {
   return null;
 }
 
-export function applyStoredVote(results: PollResults, optionId: string): PollResults {
-  if (!results.options.some((option) => option.id === optionId)) {
-    return results;
-  }
-
-  const total = results.total + 1;
-  return {
-    total,
-    pollId: results.pollId,
-    options: results.options.map((option) => {
-      const count = option.id === optionId ? option.count + 1 : option.count;
-      return {
-        count,
-        id: option.id,
-        label: option.label,
-        percentage: votePercentage(count, total),
-      };
-    }),
-  };
-}
-
 export function mergeResults(current: PollResults, incoming: PollResults): PollResults {
   if (incoming.pollId !== current.pollId || incoming.total < current.total) {
     return current;
@@ -67,13 +46,14 @@ export function mergeResults(current: PollResults, incoming: PollResults): PollR
 
 export function deriveVoteView(
   results: PollResults,
-  _serverOptionId: string | null,
   phase: VotePhase,
-  baselineTotal: number | null = null,
+  baselineCount: number | null = null,
 ): VoteView {
   const selectedOptionId = selectedId(phase);
+  const selectedCount =
+    results.options.find((option) => option.id === selectedOptionId)?.count ?? 0;
   const pendingBump =
-    phase.status === 'pending' && (baselineTotal === null || results.total <= baselineTotal);
+    phase.status === 'pending' && (baselineCount === null || selectedCount <= baselineCount);
   const counts = results.options.map((option) =>
     pendingBump && option.id === selectedOptionId ? option.count + 1 : option.count,
   );

@@ -21,20 +21,21 @@ export const VotePanel: FC<VotePanelProps> = ({
   const [phase, setPhase] = useState<VotePhase>(() =>
     serverOptionId ? { optionId: serverOptionId, status: 'voted' } : { status: 'idle' },
   );
-  const [baselineTotal, setBaselineTotal] = useState<number | null>(null);
+  const [baselineCount, setBaselineCount] = useState<number | null>(null);
   const busy = useRef(false);
-  const view = deriveVoteView(results, serverOptionId, phase, baselineTotal);
+  const view = deriveVoteView(results, phase, baselineCount);
 
   const choose = (optionId: string) => {
     if (busy.current || phase.status === 'voted' || phase.status === 'blocked') {
       return;
     }
     busy.current = true;
-    setBaselineTotal(results.total);
+    const currentCount = results.options.find((option) => option.id === optionId)?.count ?? 0;
+    setBaselineCount(currentCount);
     setPhase({ optionId, status: 'pending' });
     void submitVote(userId, optionId).then((next) => {
       busy.current = next.status === 'voted' || next.status === 'blocked';
-      setBaselineTotal(null);
+      setBaselineCount(null);
       if (next.status === 'voted') {
         onVoteAccepted(next.optionId);
       }

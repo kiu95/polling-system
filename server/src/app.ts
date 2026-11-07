@@ -82,17 +82,21 @@ export async function buildApp(
 
   app.get('/ws', { websocket: true }, (socket) => {
     hub.add(socket);
+    const drop = () => {
+      hub.remove(socket);
+    };
+    socket.on('close', drop);
+    socket.on('error', drop);
     const current = getResults(db);
-    if (current) {
+    if (!current) {
+      return;
+    }
+    try {
       const message: ResultsMessage = { type: 'results', results: current };
       socket.send(JSON.stringify(message));
+    } catch {
+      drop();
     }
-    socket.on('close', () => {
-      hub.remove(socket);
-    });
-    socket.on('error', () => {
-      hub.remove(socket);
-    });
   });
 
   app.get('/health', async () => ({ ok: true }));

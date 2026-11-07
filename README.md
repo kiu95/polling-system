@@ -36,9 +36,9 @@ API on 3000 and Vite on 5173 together. `predev` builds [`shared/`](shared/) so s
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Leave `VITE_API_URL` empty so Vite proxies `/health`, `/poll`, `/vote`, `/results`, and `/ws` to the API (see [`client/vite.config.ts`](client/vite.config.ts)). The page loads the active poll, result counts, and this browser’s vote (`GET /vote`), then submits with optimistic selection. While a vote is saving, the UI may show a temporary +1 on the chosen option; failed submits roll back and show an error; a stored vote survives reload. Counts stay live: the client opens `GET /ws` and applies pushed `{ "type": "results", "results" }` snapshots; after each reconnect it also refetches `GET /results` to close gaps. The header shows **Live** or **Reconnecting**.
+Open `http://127.0.0.1:5173`. Leave `VITE_API_URL` empty so Vite proxies `/health`, `/poll`, `/vote`, `/results`, and `/ws` to the API (see [`client/vite.config.ts`](client/vite.config.ts)). The page loads the active poll, result counts, and this browser’s vote (`GET /vote`), then submits with optimistic selection. While a vote is saving, the UI may show a temporary +1 on the chosen option; failed submits roll back and show an error; a stored vote survives reload. Counts stay live: the client opens `GET /ws` and applies pushed `{ "type": "results", "results" }` snapshots; after each reconnect it also refetches `GET /results` to close gaps. The header shows **Connecting**, **Live**, or **Reconnecting**.
 
-On vote accept, the client refetches results instead of bumping counts locally, so WebSocket snapshots and your own vote do not double-count. While **pending**, the +1 overlay stays only until the server `total` rises past the total at click time (so a broadcast that already includes your vote does not add a second bump). Stale snapshots with a lower `total` or another `pollId` are ignored.
+On vote accept, the client refetches results instead of bumping counts locally, so WebSocket snapshots and your own vote do not double-count. While **pending**, the +1 overlay uses the chosen option’s count at click time. Other options can rise without clearing that overlay. The overlay drops once the chosen option’s own count moves past the baseline. Stale snapshots with a lower `total` or another `pollId` are ignored. A socket whose outbound buffer exceeds 1 MiB is closed on the next broadcast.
 
 To hit the API without the proxy, set `VITE_API_URL` to `http://127.0.0.1:3000` (see [`client/.env.example`](client/.env.example)); the client maps that to `ws://` or `wss://` for `/ws`.
 
@@ -116,7 +116,7 @@ npm run start --workspace=@scmp/server
 npm test
 ```
 
-`pretest` builds `@scmp/shared` so workspace tests resolve types and package exports. Server tests use an in-memory database (no `server/data/poll.db`), including concurrent vote injects, `GET /vote` in [`server/src/vote.test.ts`](server/src/vote.test.ts), and WebSocket snapshot/broadcast checks in [`server/src/ws.test.ts`](server/src/ws.test.ts). Client tests cover API/WebSocket URL helpers, `mergeResults`, reconnect backoff, optimistic vote view derivation, and mock user id storage in [`client/src/`](client/src/).
+`pretest` builds `@scmp/shared` so workspace tests resolve types and package exports. Server tests use an in-memory database (no `server/data/poll.db`), including concurrent vote injects, `GET /vote` in [`server/src/vote.test.ts`](server/src/vote.test.ts), and WebSocket snapshot/broadcast checks in [`server/src/ws.test.ts`](server/src/ws.test.ts). Client tests cover API/WebSocket URL helpers, `mergeResults`, live-socket open/message/reconnect/unmount, reconnect backoff, optimistic vote view derivation (including another voter during pending), submit/rollback in [`client/src/submit-vote.test.ts`](client/src/submit-vote.test.ts), and mock user id storage in [`client/src/`](client/src/).
 
 ## Typecheck
 

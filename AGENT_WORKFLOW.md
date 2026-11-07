@@ -35,6 +35,7 @@ The product spec and GitHub issues are the source of scope. The assistant does n
 18. **Issue #4 plan todos 2–5.** User said `work 2nd - 5th todo`. Scope: `@fastify/websocket`, [`server/src/results-hub.ts`](server/src/results-hub.ts), `GET /ws` plus broadcast after a successful `insertVote`, [`server/src/ws.test.ts`](server/src/ws.test.ts), `mergeResults` and pending baseline in [`client/src/vote-state.ts`](client/src/vote-state.ts), [`client/src/use-live-results.ts`](client/src/use-live-results.ts) (backoff, resync on reconnect, close on unmount), Vite `/ws` proxy, accept path refetches `GET /results` instead of `applyStoredVote`. README stayed on the docs todo. Optimistic rule: pending +1 only while `results.total` is still at the click-time baseline; a newer snapshot replaces counts; a lower total or other `pollId` is ignored.
 19. **Issue #4 commits by todo.** User asked to commit by plan todo and ignore this file. Five commits on `feat/4-live-result-websockets`: shared `ResultsMessage`, server WS hub, client `mergeResults`, live hook + proxy, `App`/`VotePanel` reconcile.
 20. **Issue #4 plan todos docs + verify.** User said `work remaining todo`, then summarize here. Scope: [`README.md`](README.md), [`client/.env.example`](client/.env.example), workflow summary below; `npm run lint`, `npm run typecheck`, `npm test`; manual check — two tabs on `http://127.0.0.1:5173/` with `VOTE_INSTABILITY=off`, external `POST /vote` updated Print count on both without reload (**Live**).
+21. **PR #9 review.** User pasted the review. Fixes in this slice: pending overlay baseline is the chosen option’s count (other votes no longer clear it); `/ws` registers close/error before the snapshot send and drops the socket if send throws; broadcast closes a client whose `bufferedAmount` exceeds 1 MiB; first status is **Connecting**; README names [`submit-vote.test.ts`](client/src/submit-vote.test.ts); `readResultsMessage` checks `pollId`, `total`, and option fields; removed unused `applyStoredVote` and `deriveVoteView`’s unused server-option argument; live-socket tests cover open, message, reconnect resync, and stop. [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md) now says WebSocket. Commit `fd081c8` subject typo `pdate` left as-is (already on the remote).
 
 ## Issue #3 — voting UI (summary)
 
@@ -195,6 +196,18 @@ Symptom: with `VOTE_INSTABILITY` left on, a second vote from the same user could
 ### `injectWS` hung until `app.ready()`
 
 Symptom: both `GET /ws` tests timed out at 5000ms inside `app.injectWS`. Cause: `@fastify/websocket`'s `injectWS` does not call `ready()`, so the upgrade never completed and the client `open` event never fired. Fix: `await app.ready()` in the test `beforeEach`. Assistant fixed it after the test run; the user did not edit it by hand.
+
+### Pending overlay used the poll total
+
+Symptom: while a vote was pending, another user’s vote raised `total` and the local +1 disappeared until the POST finished. Cause: `deriveVoteView` treated any higher `total` as “my vote is already in the snapshot.” Fix: baseline is the chosen option’s count. Overlay stays while that count has not moved. PR #9 review; assistant fixed it; the user did not edit it by hand.
+
+### Snapshot send ran before socket cleanup
+
+Symptom: a throw from the initial `socket.send` could leave the socket in the hub until a later broadcast. Cause: `close` / `error` listeners were registered after the send. Fix: register those listeners first, and `remove` the socket if send throws. Same review.
+
+### First paint said Reconnecting
+
+Symptom: the header showed **Reconnecting** before the socket had ever opened. Cause: the hook’s initial status was `reconnecting`. Fix: initial status `connecting`, label **Connecting**. Same review.
 
 ### `npm audit` after Vitest
 

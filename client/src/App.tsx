@@ -1,7 +1,7 @@
 import type { ActivePoll, MyVote, PollResults } from '@scmp/shared';
 import { type FC, useEffect, useState } from 'react';
 import { apiUrl, fetchResults } from './api';
-import { useLiveResults } from './use-live-results';
+import { liveStatusLabel, useLiveResults } from './use-live-results';
 import { readUserId } from './user-id';
 import { VotePanel } from './VotePanel';
 import { mergeResults } from './vote-state';
@@ -143,8 +143,7 @@ export const App: FC = () => {
     <main className={pageClass}>
       <div className={columnClass}>
         <p className="mb-6 text-sm text-zinc-500">
-          Health: {view.healthOk ? 'OK' : 'not ok'} ·{' '}
-          {liveStatus === 'live' ? 'Live' : 'Reconnecting'}
+          Health: {view.healthOk ? 'OK' : 'not ok'} · {liveStatusLabel(liveStatus)}
         </p>
         <VotePanel
           userId={userId}

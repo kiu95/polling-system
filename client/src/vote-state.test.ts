@@ -1,6 +1,6 @@
 import type { PollResults } from '@scmp/shared';
 import { describe, expect, it } from 'vitest';
-import { applyStoredVote, deriveVoteView, mergeResults, type VotePhase } from './vote-state';
+import { deriveVoteView, mergeResults, type VotePhase } from './vote-state';
 
 const emptyResults: PollResults = {
   total: 0,
@@ -25,7 +25,7 @@ const savedWeb: PollResults = {
 describe('deriveVoteView', () => {
   it('adds one count and selects the pending option immediately', () => {
     const phase: VotePhase = { optionId: 'opt-web', status: 'pending' };
-    const view = deriveVoteView(emptyResults, null, phase);
+    const view = deriveVoteView(emptyResults, phase);
 
     expect(view.disabled).toBe(true);
     expect(view.pendingOptionId).toBe('opt-web');
@@ -41,8 +41,8 @@ describe('deriveVoteView', () => {
   });
 
   it('drops the optimistic count when the phase is an error', () => {
-    const pending = deriveVoteView(emptyResults, null, { optionId: 'opt-app', status: 'pending' });
-    const rolledBack = deriveVoteView(emptyResults, null, {
+    const pending = deriveVoteView(emptyResults, { optionId: 'opt-app', status: 'pending' });
+    const rolledBack = deriveVoteView(emptyResults, {
       message: 'Vote did not save. Try again.',
       status: 'error',
     });
@@ -57,7 +57,7 @@ describe('deriveVoteView', () => {
   });
 
   it('selects a stored vote without adding another count', () => {
-    const view = deriveVoteView(emptyResults, null, { optionId: 'opt-app', status: 'voted' });
+    const view = deriveVoteView(emptyResults, { optionId: 'opt-app', status: 'voted' });
 
     expect(view.disabled).toBe(true);
     expect(view.selectedOptionId).toBe('opt-app');
@@ -65,12 +65,12 @@ describe('deriveVoteView', () => {
   });
 
   it('does not bump a voted option when polled results already include it', () => {
-    const view = deriveVoteView(savedWeb, null, { optionId: 'opt-web', status: 'voted' });
+    const view = deriveVoteView(savedWeb, { optionId: 'opt-web', status: 'voted' });
     expect(view.options.find((option) => option.id === 'opt-web')?.count).toBe(1);
   });
 
   it('keeps buttons disabled when the existing vote cannot be loaded', () => {
-    const view = deriveVoteView(emptyResults, null, {
+    const view = deriveVoteView(emptyResults, {
       message: 'You already voted. Refresh to see your choice.',
       status: 'blocked',
     });
@@ -79,25 +79,16 @@ describe('deriveVoteView', () => {
     expect(view.errorMessage).toBe('You already voted. Refresh to see your choice.');
   });
 
-  it('folds one accepted vote into the loaded results', () => {
-    const next = applyStoredVote(emptyResults, 'opt-web');
-    expect(next.total).toBe(1);
-    expect(next.options.find((option) => option.id === 'opt-web')).toMatchObject({
-      count: 1,
-      percentage: 100,
-    });
-  });
-
-  it('does not add a second count when results already include the vote', () => {
-    const view = deriveVoteView(savedWeb, 'opt-web', { optionId: 'opt-web', status: 'voted' });
+  it('keeps the pending overlay when another option gains votes', () => {
+    const phase: VotePhase = { optionId: 'opt-app', status: 'pending' };
+    const view = deriveVoteView(savedWeb, phase, 0);
+    expect(view.options.find((option) => option.id === 'opt-app')?.count).toBe(1);
     expect(view.options.find((option) => option.id === 'opt-web')?.count).toBe(1);
   });
 
-  it('drops the pending overlay once the snapshot total passes the baseline', () => {
-    const phase: VotePhase = { optionId: 'opt-app', status: 'pending' };
-    const view = deriveVoteView(savedWeb, null, phase, 0);
-    expect(view.pendingOptionId).toBe('opt-app');
-    expect(view.options.find((option) => option.id === 'opt-app')?.count).toBe(0);
+  it('drops the pending overlay once the chosen option count passes the baseline', () => {
+    const phase: VotePhase = { optionId: 'opt-web', status: 'pending' };
+    const view = deriveVoteView(savedWeb, phase, 0);
     expect(view.options.find((option) => option.id === 'opt-web')?.count).toBe(1);
   });
 });
