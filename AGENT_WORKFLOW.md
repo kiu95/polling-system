@@ -48,6 +48,9 @@ The product spec and GitHub issues are the source of scope. The assistant does n
     - API process runs as uid 1000 via `gosu` after `chown -R` on `/data`. Base images pinned by digest. nginx API and `/ws` locations send HTTP/1.1 and `X-Forwarded-*`.
     - Left as-is: server runtime image still installs `@polling/client` production dependencies (React). Review called that acceptable for the demo.
 25. **npm scope rename.** User asked to replace namespace `@scmp` with `@polling`. Scope: all workspace package names (`@polling/shared`, `@polling/server`, `@polling/client`), TypeScript imports, root and workspace scripts, Dockerfiles, README, and `package-lock.json` via `npm install`. No behavior change.
+26. **Spec review gaps.** User asked to review the app against [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md), then said yes to a plan that closed two gaps. Scope: after a thrown `POST /vote`, [`submit-vote.ts`](client/src/submit-vote.ts) reads `GET /vote` before it tells the user the vote was not saved. README **Known limitations** records that `x-user-id` is a mock and that auth stays a non-goal. No server change, no commit.
+27. **PR #11 review.** User pasted the review. Scope: an empty `GET /vote` after a client timeout is not proof the vote failed, because the server can still be inside the instability delay and then insert. [`reconcileAfterNetworkError`](client/src/submit-vote.ts) re-reads up to three times, 500ms apart. A later stored option locks as voted. Reads that stay empty, or a failed read, use the existing unconfirmed message. The 409 follow-up path is unchanged.
+28. **PR #11 follow-up.** User pasted the next review. The unconfirmed message stayed an `error` phase so a retry is still possible; a late insert is caught by `409`. The reconcile window moved to four reads, 1s apart, so the last read lands at 3s, the default `VOTE_DELAY_MS`. PR body test count updated to the client suite size.
 
 ## Issue #3 — voting UI (summary)
 
@@ -229,6 +232,10 @@ Symptom: after the process dropped to uid 1000, `POST /vote` returned `500` with
 ### Production `npm ci` ran Husky and failed the image
 
 Symptom: `docker compose up --build` died in the server runtime stage with `sh: 1: husky: not found` during `prepare`. Cause: root `prepare` always runs `husky`, and `npm ci --omit=dev` does not install Husky. `HUSKY=0` only helps when the `husky` binary exists (the build stage skipped cleanly). Fix: runtime stage uses `npm ci --omit=dev --ignore-scripts`, then `npm rebuild better-sqlite3 --workspace=@polling/server`. Rebuild warned that install scripts are outside `allowScripts`, but `/health` returned ok and a vote persisted, so the prebuild loaded. Assistant fixed it in the same slice; the user did not edit it by hand.
+
+### Empty vote read reported as not saved
+
+Symptom: after a client timeout, one `GET /vote` with `optionId: null` showed "Vote was not saved" and allowed a retry, while the original `POST` could still finish and insert. Cause: reconcile treated a missing row as a confirmed failure. The client timeout does not cancel the server handler, and instability inserts only after the delay. Fix: re-read a few times, then the unconfirmed message. Caught by the PR #11 review. The assistant fixed it. The user did not edit it by hand.
 
 ### `npm audit` after Vitest
 
