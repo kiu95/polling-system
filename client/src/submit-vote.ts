@@ -4,8 +4,9 @@ import type { VotePhase } from './vote-state';
 
 const VOTE_TIMEOUT_MS = 8000;
 
-export const RECONCILE_ATTEMPTS = 3;
-export const RECONCILE_GAP_MS = 500;
+// Four reads, 1s apart. The last read is at 3s, matching the default server VOTE_DELAY_MS.
+export const RECONCILE_ATTEMPTS = 4;
+export const RECONCILE_GAP_MS = 1000;
 
 const SAVE_FAILED = "Vote didn't save. Try again.";
 const UNCONFIRMED = 'Could not confirm your vote. Refresh to check.';
