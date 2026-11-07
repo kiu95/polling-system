@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { buildApp } from './app.js';
 import { initDatabase, openDatabase, resolveDatabasePath } from './db.js';
+import { resolveListenHost, resolveListenPort } from './listen.js';
 import { voteInstabilityFromEnv } from './vote-instability.js';
 
 const dbPath = resolveDatabasePath();
@@ -18,8 +19,8 @@ if (voteInstability.enabled) {
     'vote instability enabled',
   );
 }
-const host = '127.0.0.1';
-const port = Number(process.env.PORT ?? 3000);
+const host = resolveListenHost();
+const port = resolveListenPort();
 
 try {
   await app.listen({ host, port });
