@@ -1,5 +1,6 @@
 import cors from '@fastify/cors';
-import type { MyVote, VoteAccepted } from '@scmp/shared';
+import websocket from '@fastify/websocket';
+import type { MyVote, ResultsMessage, VoteAccepted } from '@scmp/shared';
 import type { FastifyReply } from 'fastify';
 import Fastify, { type FastifyInstance } from 'fastify';
 import {
@@ -11,6 +12,7 @@ import {
   type SqliteDatabase,
   type VoteRejectReason,
 } from './db.js';
+import { createResultsHub } from './results-hub.js';
 import {
   applyVoteInstability,
   DISABLED_VOTE_INSTABILITY,
@@ -69,9 +71,29 @@ export async function buildApp(
   options: BuildAppOptions = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({ logger: options.logger ?? false });
+  const hub = createResultsHub();
   const voteInstability = options.voteInstability ?? DISABLED_VOTE_INSTABILITY;
   // Local dev only: reflect any Origin (fine for 127.0.0.1). Tighten to an allowlist before Docker / exposed ports — see issue #5.
   await app.register(cors, { origin: true });
+  await app.register(websocket);
+  app.addHook('onClose', async () => {
+    hub.close();
+  });
+
+  app.get('/ws', { websocket: true }, (socket) => {
+    hub.add(socket);
+    const current = getResults(db);
+    if (current) {
+      const message: ResultsMessage = { type: 'results', results: current };
+      socket.send(JSON.stringify(message));
+    }
+    socket.on('close', () => {
+      hub.remove(socket);
+    });
+    socket.on('error', () => {
+      hub.remove(socket);
+    });
+  });
 
   app.get('/health', async () => ({ ok: true }));
 
@@ -130,6 +152,11 @@ export async function buildApp(
     const result = insertVote(db, { userId, optionId });
     if (!result.ok) {
       return sendVoteRejection(reply, result.reason);
+    }
+
+    const snapshot = getResults(db);
+    if (snapshot) {
+      hub.broadcast(snapshot);
     }
 
     const body: VoteAccepted = { pollId: result.pollId, optionId: result.optionId };
