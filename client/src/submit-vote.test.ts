@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { submitVote } from './submit-vote';
+import { RECONCILE_ATTEMPTS, RECONCILE_GAP_MS, submitVote } from './submit-vote';
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -10,6 +10,7 @@ function jsonResponse(body: unknown, status: number): Response {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe('submitVote', () => {
@@ -42,21 +43,55 @@ describe('submitVote', () => {
     });
   });
 
-  it('returns a network error when the submit throws and no vote is stored', async () => {
+  it('locks the vote when an empty read is followed by a stored vote', async () => {
+    let reads = 0;
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
         if (init?.method === 'POST') {
           throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
         }
+        reads += 1;
+        if (reads === 1) {
+          return jsonResponse({ pollId: 'poll-1', optionId: null }, 200);
+        }
+        return jsonResponse({ pollId: 'poll-1', optionId: 'opt-web' }, 200);
+      }),
+    );
+    vi.useFakeTimers();
+
+    const pending = submitVote('user-1', 'opt-web');
+    await vi.advanceTimersByTimeAsync(RECONCILE_GAP_MS);
+
+    await expect(pending).resolves.toEqual({
+      optionId: 'opt-web',
+      status: 'voted',
+    });
+    expect(reads).toBe(2);
+  });
+
+  it('stays unconfirmed when reads stay empty', async () => {
+    let reads = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+        }
+        reads += 1;
         return jsonResponse({ pollId: 'poll-1', optionId: null }, 200);
       }),
     );
+    vi.useFakeTimers();
 
-    await expect(submitVote('user-1', 'opt-web')).resolves.toEqual({
-      message: 'Network problem. Vote was not saved.',
+    const pending = submitVote('user-1', 'opt-web');
+    await vi.advanceTimersByTimeAsync(RECONCILE_GAP_MS * (RECONCILE_ATTEMPTS - 1));
+
+    await expect(pending).resolves.toEqual({
+      message: 'Could not confirm your vote. Refresh to check.',
       status: 'error',
     });
+    expect(reads).toBe(RECONCILE_ATTEMPTS);
   });
 
   it('asks for a refresh when the submit and the follow-up both fail', async () => {

@@ -4,9 +4,11 @@ import type { VotePhase } from './vote-state';
 
 const VOTE_TIMEOUT_MS = 8000;
 
+export const RECONCILE_ATTEMPTS = 3;
+export const RECONCILE_GAP_MS = 500;
+
 const SAVE_FAILED = "Vote didn't save. Try again.";
 const UNCONFIRMED = 'Could not confirm your vote. Refresh to check.';
-const NETWORK_FAILED = 'Network problem. Vote was not saved.';
 const ALREADY_VOTED = 'You already voted. Refresh to see your choice.';
 
 type MyVoteRead = { status: 'failed' } | { status: 'none' } | { status: 'voted'; optionId: string };
@@ -70,17 +72,38 @@ function phaseFromStored(
   }
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 async function lockExistingVote(userId: string): Promise<VotePhase> {
   const blocked = blockedPhase();
   return phaseFromStored(await fetchMyVote(userId), blocked, blocked);
 }
 
 async function reconcileAfterNetworkError(userId: string): Promise<VotePhase> {
-  return phaseFromStored(
-    await fetchMyVote(userId),
-    errorPhase(UNCONFIRMED),
-    errorPhase(NETWORK_FAILED),
-  );
+  const unconfirmed = errorPhase(UNCONFIRMED);
+  for (let attempt = 0; attempt < RECONCILE_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) {
+      await wait(RECONCILE_GAP_MS);
+    }
+    const read = await fetchMyVote(userId);
+    switch (read.status) {
+      case 'voted':
+        return { status: 'voted', optionId: read.optionId };
+      case 'failed':
+        return unconfirmed;
+      case 'none':
+        break;
+      default: {
+        const unreachable: never = read;
+        return unreachable;
+      }
+    }
+  }
+  return unconfirmed;
 }
 
 export async function submitVote(userId: string, optionId: string): Promise<VotePhase> {
