@@ -41,6 +41,12 @@ The product spec and GitHub issues are the source of scope. The assistant does n
     - [`server/Dockerfile`](server/Dockerfile), [`client/Dockerfile`](client/Dockerfile), [`client/nginx.conf`](client/nginx.conf), [`.dockerignore`](.dockerignore), [`docker-compose.yml`](docker-compose.yml). nginx proxies `/health`, `/poll`, `/vote`, `/results`, and `/ws` to the `server` service. Named volume `poll-data`. UI on port 8080. `VOTE_INSTABILITY` passes through (default on).
     - Extra race test in [`server/src/vote.test.ts`](server/src/vote.test.ts): 99 parallel votes split across Web / App / Print; counts sum to 99 and each option is 33. Existing 100-user and duplicate-user tests stayed. Client rollback suite already in [`client/src/submit-vote.test.ts`](client/src/submit-vote.test.ts). `npm test` 21 server + 25 client.
 23. **Issue #5 remaining plan todos.** User said `open new branch, split commits by todo` then `work remaining items`. Branch `feat/5-docker-compose` with five commits (env, Dockerfiles, compose, race test, workflow). This slice: [`README.md`](README.md) Docker run/stop/volume, architecture notes, critical-test table; verify pass (`npm run lint`, `npm run typecheck`, `npm test`, Docker smoke). No new product code.
+24. **PR #10 review.** User pasted the review. Fixes in this slice:
+    - CORS comment no longer points at a future #5. [`corsOriginFromEnv`](server/src/cors-origin.ts): default `reflect` for Vite; Compose sets `CORS_ORIGIN=off` because nginx is same-origin and the API port is unpublished.
+    - [`resolveListenPort`](server/src/listen.ts) rejects non-integers and ports outside 1–65535. Tests cover that, blank `HOST` / `PORT`, and `CORS_ORIGIN`.
+    - `SIGTERM` / `SIGINT` call `app.close()` then `db.close()`.
+    - API process runs as uid 1000 via `gosu` after `chown -R` on `/data`. Base images pinned by digest. nginx API and `/ws` locations send HTTP/1.1 and `X-Forwarded-*`.
+    - Left as-is: server runtime image still installs `@scmp/client` production dependencies (React). Review called that acceptable for the demo.
 
 ## Issue #3 — voting UI (summary)
 
@@ -214,6 +220,10 @@ Symptom: a throw from the initial `socket.send` could leave the socket in the hu
 ### First paint said Reconnecting
 
 Symptom: the header showed **Reconnecting** before the socket had ever opened. Cause: the hook’s initial status was `reconnecting`. Fix: initial status `connecting`, label **Connecting**. Same review.
+
+### Non-root API could not write the existing SQLite volume
+
+Symptom: after the process dropped to uid 1000, `POST /vote` returned `500` with `SQLITE_READONLY`. Cause: the entrypoint ran `chown node:node /data`, which changes the directory only. `poll.db` from the earlier root-owned volume stayed root and mode `644`. Fix: `chown -R node:node /data` before `gosu`. A vote then survived `docker compose stop` / `start`. Assistant fixed it in the same review slice; the user did not edit it by hand.
 
 ### Production `npm ci` ran Husky and failed the image
 

@@ -103,6 +103,10 @@ Turn it off for predictable curls and tests:
 | `VOTE_INSTABILITY` | Set to `off` to disable the simulation | on |
 | `VOTE_FAILURE_RATE` | Fraction of votes that enter the unstable path (`0`–`1`) | `0.15` |
 | `VOTE_DELAY_MS` | Delay in ms when the unstable path chooses wait-then-success | `3000` |
+| `CORS_ORIGIN` | `reflect` (any Origin), `off` (no CORS headers), or a comma-separated allowlist | `reflect` |
+| `HOST` | Bind address | `127.0.0.1` |
+| `PORT` | Bind port (integer 1–65535; anything else exits on startup) | `3000` |
+| `DATABASE_PATH` | SQLite file | `server/data/poll.db` |
 
 The vote curl above uses the same `VOTE_INSTABILITY=off` switch.
 
@@ -133,7 +137,7 @@ VOTE_INSTABILITY=off docker compose up --build
 curl -s http://127.0.0.1:8080/health
 ```
 
-Server bind and database file inside the container are set in [`server/Dockerfile`](server/Dockerfile) and [`docker-compose.yml`](docker-compose.yml): `HOST=0.0.0.0`, `DATABASE_PATH=/data/poll.db` on volume `poll-data`. Local `npm run dev` is unchanged (`127.0.0.1:3000`, `server/data/poll.db` unless `DATABASE_PATH` is set).
+Server bind and database file inside the container are set in [`server/Dockerfile`](server/Dockerfile) and [`docker-compose.yml`](docker-compose.yml): `HOST=0.0.0.0`, `DATABASE_PATH=/data/poll.db` on volume `poll-data`, `CORS_ORIGIN=off` (nginx is same-origin; the API port is not published). The entrypoint `chown`s `/data` and runs the API as the image `node` user. `SIGTERM` / `SIGINT` close Fastify and the database. Local `npm run dev` is unchanged (`127.0.0.1:3000`, reflected CORS, `server/data/poll.db` unless `DATABASE_PATH` is set). The runtime image still installs workspace production dependencies, including the client’s React packages.
 
 ## Architecture (brief)
 

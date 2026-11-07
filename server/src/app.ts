@@ -3,6 +3,7 @@ import websocket from '@fastify/websocket';
 import type { MyVote, ResultsMessage, VoteAccepted } from '@scmp/shared';
 import type { FastifyReply } from 'fastify';
 import Fastify, { type FastifyInstance } from 'fastify';
+import type { CorsOrigin } from './cors-origin.js';
 import {
   assessVote,
   getActivePoll,
@@ -25,6 +26,7 @@ interface VoteBody {
 
 interface BuildAppOptions {
   logger?: boolean;
+  corsOrigin?: CorsOrigin;
   voteInstability?: VoteInstabilityConfig;
 }
 
@@ -73,8 +75,10 @@ export async function buildApp(
   const app = Fastify({ logger: options.logger ?? false });
   const hub = createResultsHub();
   const voteInstability = options.voteInstability ?? DISABLED_VOTE_INSTABILITY;
-  // Local dev only: reflect any Origin (fine for 127.0.0.1). Tighten to an allowlist before Docker / exposed ports — see issue #5.
-  await app.register(cors, { origin: true });
+  // Default reflects any Origin so Vite on :5173 can call the API on :3000.
+  // Compose sets CORS_ORIGIN=off: the browser only talks to nginx (same origin) and the API port is not published.
+  const corsOrigin = options.corsOrigin ?? true;
+  await app.register(cors, { origin: corsOrigin });
   await app.register(websocket);
   app.addHook('onClose', async () => {
     hub.close();

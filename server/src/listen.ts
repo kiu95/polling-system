@@ -11,5 +11,12 @@ export function resolveListenPort(env: NodeJS.ProcessEnv = process.env): number 
   if (!raw) {
     return 3000;
   }
-  return Number(raw);
+  if (!/^\d+$/.test(raw)) {
+    throw new Error(`invalid PORT: ${raw}`);
+  }
+  const port = Number(raw);
+  if (port < 1 || port > 65535) {
+    throw new Error(`invalid PORT: ${raw}`);
+  }
+  return port;
 }
