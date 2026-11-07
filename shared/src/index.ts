@@ -31,3 +31,8 @@ export interface PollResults {
   pollId: string;
   options: PollResultOption[];
 }
+
+export type ResultsMessage = {
+  type: 'results';
+  results: PollResults;
+};
