@@ -24,7 +24,13 @@ The product spec and GitHub issues are the source of scope. The assistant does n
     - **Tests + docs** ([`server/src/vote.test.ts`](server/src/vote.test.ts), [`README.md`](README.md), this file): Vitest covers happy path, `409`, 100 parallel users same option, parallel duplicate user, validation, empty DB, forced `500` and delay. README: curls, env (`VOTE_INSTABILITY`, `VOTE_FAILURE_RATE`, `VOTE_DELAY_MS`), note Vite still proxies only `/health` and `/poll` until issue #3. No [`client/vite.config.ts`](client/vite.config.ts) proxy for `/vote` or `/results`.
 12. **PR #7 review.** User pasted the review. Scope: run eligibility (`assessVote`) before `applyVoteInstability`, so a second vote, a bad option, and a missing poll stay `409` / `400` / `404` while chaos is on; `simulated_failure` only when the insert would otherwise succeed. Removed unused `app.decorate('voteInstability')`. README puts `VOTE_INSTABILITY=off` on the vote curl. Test: already-voted user plus a forced-fail config still returns `409` and does not roll. Happy-path results assert zero-vote percentages and `100` after one vote.
 13–14. **[GitHub issue #3](https://github.com/kiu95/scmp-polling-system/issues/3) — voting UI.** User drove `work on first 5 todo items` then `work remaining todo` (docs only). Grouped record: [Issue #3 — voting UI (summary)](#issue-3--voting-ui-summary).
-15. **Issue #3 ship.** User asked to group the workflow summary, then split **six commits** by plan todo, push `feat/3-voting-ui`, open [PR #8](https://github.com/kiu95/scmp-polling-system/pull/8). Vite proxy commit landed before Tailwind so `vite.config.ts` grows in two commits.
+15. **Issue #3 ship.** User asked to group the workflow summary, then split **six commits** by plan todo, push `feat/3-voting-ui`, open [PR #8](https://github.com/kiu95/scmp-polling-system/pull/8). Vite proxy commit landed before Tailwind so `vite.config.ts` grows in two commits. The branch then gained a seventh commit for this split note.
+16. **PR #8 review.** User pasted the review. No blockers. Fixes in the same slice:
+    - Optimistic +1 only while `pending`. A successful vote calls `onVoteAccepted`, which sets `serverOptionId` and `applyStoredVote` once. A later `GET /results` poll ([#4](https://github.com/kiu95/scmp-polling-system/issues/4)) must replace `results` and must not add another local +1 on `voted`.
+    - [`submit-vote.test.ts`](client/src/submit-vote.test.ts): `500`, timeout, `409` lock, failed follow-up read, unreadable `200` body.
+    - Failed `409` follow-up is `blocked` (buttons stay disabled). Message still says refresh.
+    - A `200` whose JSON cannot be read locks the option that was posted, not a network error.
+    - Left as-is: system `font-serif` (no webfont), no React Testing Library on `VotePanel`, and prompt item 11’s “instability runs before `insertVote`” sentence (history; item 12 is the correction).
 
 ## Issue #3 — voting UI (summary)
 

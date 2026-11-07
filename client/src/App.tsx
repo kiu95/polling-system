@@ -3,6 +3,7 @@ import { type FC, useEffect, useState } from 'react';
 import { apiUrl } from './api';
 import { readUserId } from './user-id';
 import { VotePanel } from './VotePanel';
+import { applyStoredVote } from './vote-state';
 
 type ViewState =
   | { status: 'loading' }
@@ -63,6 +64,21 @@ export const App: FC = () => {
     };
   }, [userId]);
 
+  const onVoteAccepted = (optionId: string) => {
+    setView((current) => {
+      if (current.status !== 'ready' || current.serverOptionId === optionId) {
+        return current;
+      }
+      return {
+        poll: current.poll,
+        results: applyStoredVote(current.results, optionId),
+        status: 'ready',
+        healthOk: current.healthOk,
+        serverOptionId: optionId,
+      };
+    });
+  };
+
   if (view.status === 'loading') {
     return (
       <main className={pageClass}>
@@ -92,6 +108,7 @@ export const App: FC = () => {
           poll={view.poll}
           results={view.results}
           serverOptionId={view.serverOptionId}
+          onVoteAccepted={onVoteAccepted}
         />
       </div>
     </main>

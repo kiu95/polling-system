@@ -25,6 +25,10 @@ function errorPhase(message: string): VotePhase {
   return { message, status: 'error' };
 }
 
+function blockedPhase(): VotePhase {
+  return { status: 'blocked', message: ALREADY_VOTED };
+}
+
 async function lockExistingVote(userId: string): Promise<VotePhase> {
   try {
     const response = await fetch(apiUrl('/vote'), {
@@ -32,15 +36,15 @@ async function lockExistingVote(userId: string): Promise<VotePhase> {
       signal: AbortSignal.timeout(VOTE_TIMEOUT_MS),
     });
     if (!response.ok) {
-      return errorPhase(ALREADY_VOTED);
+      return blockedPhase();
     }
     const body = (await response.json()) as MyVote;
     if (!body.optionId) {
-      return errorPhase(ALREADY_VOTED);
+      return blockedPhase();
     }
     return { optionId: body.optionId, status: 'voted' };
   } catch {
-    return errorPhase(ALREADY_VOTED);
+    return blockedPhase();
   }
 }
 
@@ -57,8 +61,15 @@ export async function submitVote(userId: string, optionId: string): Promise<Vote
     });
 
     if (response.ok) {
-      const body = (await response.json()) as VoteAccepted;
-      return { optionId: body.optionId, status: 'voted' };
+      try {
+        const body = (await response.json()) as VoteAccepted;
+        if (typeof body.optionId === 'string' && body.optionId.length > 0) {
+          return { optionId: body.optionId, status: 'voted' };
+        }
+      } catch {
+        // The vote is stored. Lock the option we sent when the body cannot be read.
+      }
+      return { optionId, status: 'voted' };
     }
 
     if (response.status === 409) {

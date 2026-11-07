@@ -1,6 +1,6 @@
 import type { PollResults } from '@scmp/shared';
 import { describe, expect, it } from 'vitest';
-import { deriveVoteView, type VotePhase } from './vote-state';
+import { applyStoredVote, deriveVoteView, type VotePhase } from './vote-state';
 
 const emptyResults: PollResults = {
   total: 0,
@@ -56,18 +56,35 @@ describe('deriveVoteView', () => {
     ).toBe(true);
   });
 
-  it('locks the stored option when a conflicting click is replaced', () => {
+  it('selects a stored vote without adding another count', () => {
     const view = deriveVoteView(emptyResults, null, { optionId: 'opt-app', status: 'voted' });
 
     expect(view.disabled).toBe(true);
     expect(view.selectedOptionId).toBe('opt-app');
-    expect(view.options.find((option) => option.id === 'opt-app')).toMatchObject({
-      count: 1,
-      selected: true,
+    expect(view.options.every((option) => option.count === 0)).toBe(true);
+  });
+
+  it('does not bump a voted option when polled results already include it', () => {
+    const view = deriveVoteView(savedWeb, null, { optionId: 'opt-web', status: 'voted' });
+    expect(view.options.find((option) => option.id === 'opt-web')?.count).toBe(1);
+  });
+
+  it('keeps buttons disabled when the existing vote cannot be loaded', () => {
+    const view = deriveVoteView(emptyResults, null, {
+      message: 'You already voted. Refresh to see your choice.',
+      status: 'blocked',
     });
-    expect(view.options.find((option) => option.id === 'opt-web')).toMatchObject({
-      count: 0,
-      selected: false,
+    expect(view.disabled).toBe(true);
+    expect(view.selectedOptionId).toBeNull();
+    expect(view.errorMessage).toBe('You already voted. Refresh to see your choice.');
+  });
+
+  it('folds one accepted vote into the loaded results', () => {
+    const next = applyStoredVote(emptyResults, 'opt-web');
+    expect(next.total).toBe(1);
+    expect(next.options.find((option) => option.id === 'opt-web')).toMatchObject({
+      count: 1,
+      percentage: 100,
     });
   });
 

@@ -8,26 +8,36 @@ interface VotePanelProps {
   poll: ActivePoll;
   results: PollResults;
   serverOptionId: string | null;
+  onVoteAccepted: (optionId: string) => void;
 }
 
-export const VotePanel: FC<VotePanelProps> = ({ poll, userId, results, serverOptionId }) => {
+export const VotePanel: FC<VotePanelProps> = ({
+  poll,
+  userId,
+  results,
+  serverOptionId,
+  onVoteAccepted,
+}) => {
   const [phase, setPhase] = useState<VotePhase>(() =>
     serverOptionId ? { optionId: serverOptionId, status: 'voted' } : { status: 'idle' },
   );
   const busy = useRef(false);
   const view = deriveVoteView(results, serverOptionId, phase);
 
-  function choose(optionId: string): void {
-    if (busy.current || phase.status === 'voted') {
+  const choose = (optionId: string) => {
+    if (busy.current || phase.status === 'voted' || phase.status === 'blocked') {
       return;
     }
     busy.current = true;
     setPhase({ optionId, status: 'pending' });
     void submitVote(userId, optionId).then((next) => {
-      busy.current = next.status === 'voted';
+      busy.current = next.status === 'voted' || next.status === 'blocked';
+      if (next.status === 'voted') {
+        onVoteAccepted(next.optionId);
+      }
       setPhase(next);
     });
-  }
+  };
 
   return (
     <section className="flex flex-col gap-6">
