@@ -36,7 +36,11 @@ API on 3000 and Vite on 5173 together. `predev` builds [`shared/`](shared/) so s
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Leave `VITE_API_URL` empty so Vite proxies `/health`, `/poll`, `/vote`, and `/results` to the API (see [`client/vite.config.ts`](client/vite.config.ts)). The page loads the active poll, result counts, and this browser’s vote (`GET /vote`), then submits with optimistic selection and count bumps. Failed submits roll back and show an error; a stored vote survives reload. Live results polling is still [issue #4](https://github.com/kiu95/scmp-polling-system/issues/4). To hit the API without the proxy, set `VITE_API_URL` to `http://127.0.0.1:3000` (see [`client/.env.example`](client/.env.example)).
+Open `http://127.0.0.1:5173`. Leave `VITE_API_URL` empty so Vite proxies `/health`, `/poll`, `/vote`, `/results`, and `/ws` to the API (see [`client/vite.config.ts`](client/vite.config.ts)). The page loads the active poll, result counts, and this browser’s vote (`GET /vote`), then submits with optimistic selection. While a vote is saving, the UI may show a temporary +1 on the chosen option; failed submits roll back and show an error; a stored vote survives reload. Counts stay live: the client opens `GET /ws` and applies pushed `{ "type": "results", "results" }` snapshots; after each reconnect it also refetches `GET /results` to close gaps. The header shows **Live** or **Reconnecting**.
+
+On vote accept, the client refetches results instead of bumping counts locally, so WebSocket snapshots and your own vote do not double-count. While **pending**, the +1 overlay stays only until the server `total` rises past the total at click time (so a broadcast that already includes your vote does not add a second bump). Stale snapshots with a lower `total` or another `pollId` are ignored.
+
+To hit the API without the proxy, set `VITE_API_URL` to `http://127.0.0.1:3000` (see [`client/.env.example`](client/.env.example)); the client maps that to `ws://` or `wss://` for `/ws`.
 
 ## Run one package only
 
@@ -72,6 +76,8 @@ curl -s -X POST http://127.0.0.1:3000/vote \
 `GET /health` returns `{ "ok": true }`. `GET /poll` returns the seeded active poll (`poll-1`) and its options. Restarting the server does not duplicate that poll.
 
 `GET /results` returns vote counts and one-decimal percentages per option. Rounded shares of one total can add up to `99.9` or `100.1`.
+
+`GET /ws` (WebSocket upgrade) sends the current `PollResults` JSON on connect, then broadcasts the same shape after each accepted `POST /vote`. Rejected votes (`409`, `400`, and so on) do not broadcast. Message shape: `{ "type": "results", "results": { … } }` ([`ResultsMessage`](shared/src/index.ts)).
 
 `GET /vote` with a non-empty `x-user-id` header returns `{ "pollId", "optionId" }` where `optionId` is `null` until that user has voted on the active poll. Missing user is `400` (`invalid_user_id`). No active poll is `404` (`no_active_poll`).
 
@@ -110,7 +116,7 @@ npm run start --workspace=@scmp/server
 npm test
 ```
 
-`pretest` builds `@scmp/shared` so workspace tests resolve types and package exports. Server tests use an in-memory database (no `server/data/poll.db`), including concurrent vote injects and `GET /vote` in [`server/src/vote.test.ts`](server/src/vote.test.ts). Client tests cover the API URL helper, optimistic vote view derivation, and mock user id storage in [`client/src/`](client/src/).
+`pretest` builds `@scmp/shared` so workspace tests resolve types and package exports. Server tests use an in-memory database (no `server/data/poll.db`), including concurrent vote injects, `GET /vote` in [`server/src/vote.test.ts`](server/src/vote.test.ts), and WebSocket snapshot/broadcast checks in [`server/src/ws.test.ts`](server/src/ws.test.ts). Client tests cover API/WebSocket URL helpers, `mergeResults`, reconnect backoff, optimistic vote view derivation, and mock user id storage in [`client/src/`](client/src/).
 
 ## Typecheck
 
