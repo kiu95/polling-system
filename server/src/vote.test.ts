@@ -302,4 +302,44 @@ describe('POST /vote and GET /results', () => {
     const rows = db.prepare('SELECT COUNT(*) AS n FROM votes').get() as { n: number };
     expect(rows.n).toBe(1);
   });
+
+  it('GET /vote returns null option until the user votes', async () => {
+    const before = await app.inject({
+      headers: jsonHeaders('user-mine'),
+      method: 'GET',
+      url: '/vote',
+    });
+    expect(before.statusCode).toBe(200);
+    expect(before.json()).toEqual({ pollId: 'poll-1', optionId: null });
+
+    await app.inject({
+      headers: jsonHeaders('user-mine'),
+      method: 'POST',
+      payload: votePayload('opt-app'),
+      url: '/vote',
+    });
+
+    const after = await app.inject({
+      headers: jsonHeaders('user-mine'),
+      method: 'GET',
+      url: '/vote',
+    });
+    expect(after.statusCode).toBe(200);
+    expect(after.json()).toEqual({ pollId: 'poll-1', optionId: 'opt-app' });
+  });
+
+  it('GET /vote rejects a missing user and a missing poll', async () => {
+    const missingUser = await app.inject({ method: 'GET', url: '/vote' });
+    expect(missingUser.statusCode).toBe(400);
+    expect(missingUser.json()).toEqual({ error: 'invalid_user_id' });
+
+    db.exec('DELETE FROM votes; DELETE FROM options; DELETE FROM polls;');
+    const missingPoll = await app.inject({
+      headers: jsonHeaders('user-f'),
+      method: 'GET',
+      url: '/vote',
+    });
+    expect(missingPoll.statusCode).toBe(404);
+    expect(missingPoll.json()).toEqual({ error: 'no_active_poll' });
+  });
 });

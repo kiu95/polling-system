@@ -14,6 +14,11 @@ export interface VoteAccepted {
   optionId: string;
 }
 
+export interface MyVote {
+  pollId: string;
+  optionId: string | null;
+}
+
 export interface PollResultOption {
   id: string;
   count: number;

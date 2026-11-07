@@ -4,7 +4,7 @@ Local development — see [issue #1](https://github.com/kiu95/scmp-polling-syste
 
 ## Stack
 
-- **Frontend:** Vite + React + TypeScript in [`client/`](client/).
+- **Frontend:** Vite + React + TypeScript + Tailwind CSS v4 in [`client/`](client/).
 - **Backend:** Fastify + TypeScript + SQLite (`better-sqlite3`) in [`server/`](server/).
 
 ## Ports
@@ -36,7 +36,7 @@ API on 3000 and Vite on 5173 together. `predev` builds [`shared/`](shared/) so s
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Leave `VITE_API_URL` empty so Vite proxies `/health` and `/poll` to the API. The browser page only fetches those two paths until [issue #3](https://github.com/kiu95/scmp-polling-system/issues/3). Call `/vote` and `/results` with `curl` or set `VITE_API_URL` to `http://127.0.0.1:3000` after you add a proxy entry. See [`client/.env.example`](client/.env.example).
+Open `http://127.0.0.1:5173`. Leave `VITE_API_URL` empty so Vite proxies `/health`, `/poll`, `/vote`, and `/results` to the API (see [`client/vite.config.ts`](client/vite.config.ts)). The page loads the active poll, result counts, and this browser’s vote (`GET /vote`), then submits with optimistic selection and count bumps. Failed submits roll back and show an error; a stored vote survives reload. Live results polling is still [issue #4](https://github.com/kiu95/scmp-polling-system/issues/4). To hit the API without the proxy, set `VITE_API_URL` to `http://127.0.0.1:3000` (see [`client/.env.example`](client/.env.example)).
 
 ## Run one package only
 
@@ -73,7 +73,15 @@ curl -s -X POST http://127.0.0.1:3000/vote \
 
 `GET /results` returns vote counts and one-decimal percentages per option. Rounded shares of one total can add up to `99.9` or `100.1`.
 
-`POST /vote` expects JSON `{ "optionId": "<id>" }` and a non-empty `x-user-id` header (mock user, up to 128 characters after trim). Success is `200` with `{ "pollId", "optionId" }`. Same user and poll again returns `409` with `{ "error": "already_voted" }`. A bad option is `400`. No active poll is `404`. Those responses are stable; the failure simulation runs only after the vote would otherwise be stored.
+`GET /vote` with a non-empty `x-user-id` header returns `{ "pollId", "optionId" }` where `optionId` is `null` until that user has voted on the active poll. Missing user is `400` (`invalid_user_id`). No active poll is `404` (`no_active_poll`).
+
+`POST /vote` expects JSON `{ "optionId": "<id>" }` and the same `x-user-id` header (mock user, up to 128 characters after trim). Success is `200` with `{ "pollId", "optionId" }`. Same user and poll again returns `409` with `{ "error": "already_voted" }`. A bad option is `400`. No active poll is `404`. Those responses are stable; the failure simulation runs only after the vote would otherwise be stored.
+
+Example after a vote (same `x-user-id` as `POST /vote`):
+
+```bash
+curl -s http://127.0.0.1:3000/vote -H 'x-user-id: demo-user'
+```
 
 ### Vote instability (local practice)
 
@@ -102,7 +110,7 @@ npm run start --workspace=@scmp/server
 npm test
 ```
 
-`pretest` builds `@scmp/shared` so workspace tests resolve types and package exports. Server tests use an in-memory database (no `server/data/poll.db`), including concurrent vote injects in [`server/src/vote.test.ts`](server/src/vote.test.ts). Client tests cover the API URL helper only.
+`pretest` builds `@scmp/shared` so workspace tests resolve types and package exports. Server tests use an in-memory database (no `server/data/poll.db`), including concurrent vote injects and `GET /vote` in [`server/src/vote.test.ts`](server/src/vote.test.ts). Client tests cover the API URL helper, optimistic vote view derivation, and mock user id storage in [`client/src/`](client/src/).
 
 ## Typecheck
 
