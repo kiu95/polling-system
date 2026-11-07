@@ -48,6 +48,7 @@ The product spec and GitHub issues are the source of scope. The assistant does n
     - API process runs as uid 1000 via `gosu` after `chown -R` on `/data`. Base images pinned by digest. nginx API and `/ws` locations send HTTP/1.1 and `X-Forwarded-*`.
     - Left as-is: server runtime image still installs `@polling/client` production dependencies (React). Review called that acceptable for the demo.
 25. **npm scope rename.** User asked to replace namespace `@scmp` with `@polling`. Scope: all workspace package names (`@polling/shared`, `@polling/server`, `@polling/client`), TypeScript imports, root and workspace scripts, Dockerfiles, README, and `package-lock.json` via `npm install`. No behavior change.
+26. **Spec review gaps.** User asked to review the app against [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md), then said yes to a plan that closed two gaps. Scope: after a thrown `POST /vote`, [`submit-vote.ts`](client/src/submit-vote.ts) reads `GET /vote` before it tells the user the vote was not saved. README **Known limitations** records that `x-user-id` is a mock and that auth stays a non-goal. No server change, no commit.
 
 ## Issue #3 — voting UI (summary)
 

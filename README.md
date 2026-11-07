@@ -151,7 +151,7 @@ Browser ──► Vite (dev) or nginx (Docker) ──► Fastify
 - **Race safety (critical tests)** — Vitest fires many parallel `POST /vote` injects (same option and split across options) and duplicate-user races; see [`server/src/vote.test.ts`](server/src/vote.test.ts).
 - **Instability** — Eligibility (`assessVote`) runs before the optional failure simulator, so `409` / `400` / `404` stay stable under chaos; `500 simulated_failure` only when a row would have been inserted ([`server/src/vote-instability.ts`](server/src/vote-instability.ts)).
 - **Live results** — After a successful insert, the server broadcasts `{ "type": "results", "results": … }` on `/ws` ([`server/src/results-hub.ts`](server/src/results-hub.ts)).
-- **Optimistic UI** — Pending +1 on the chosen option’s count; rollback on `500`, timeout, or network errors; refetch results on accept so WebSocket updates do not double-count ([`client/src/vote-state.ts`](client/src/vote-state.ts), [`client/src/submit-vote.ts`](client/src/submit-vote.ts)).
+- **Optimistic UI** — Pending +1 on the chosen option’s count; rollback on `500`. A timeout or dropped connection checks `GET /vote` before the UI says the vote was not saved. Refetch results on accept so WebSocket updates do not double-count ([`client/src/vote-state.ts`](client/src/vote-state.ts), [`client/src/submit-vote.ts`](client/src/submit-vote.ts)).
 
 ## Build
 
@@ -173,7 +173,7 @@ npm test
 | Area | File | What it proves |
 | ---- | ---- | -------------- |
 | Concurrent votes / races | [`server/src/vote.test.ts`](server/src/vote.test.ts) | 100 parallel users on one option; 99 parallel votes split across three options; parallel duplicate user → one row and `409` |
-| Optimistic rollback | [`client/src/submit-vote.test.ts`](client/src/submit-vote.test.ts) | `500`, timeout, bad body, `409` lock, failed `GET /vote` after accept |
+| Optimistic rollback | [`client/src/submit-vote.test.ts`](client/src/submit-vote.test.ts) | `500`, timeout reconcile (`GET /vote` saved, missing, or also failed), bad body, `409` lock, failed `GET /vote` after accept |
 
 Other server coverage: smoke and idempotent seed in [`server/src/app.test.ts`](server/src/app.test.ts), listen/DB path env in [`server/src/runtime-config.test.ts`](server/src/runtime-config.test.ts), WebSocket snapshot/broadcast in [`server/src/ws.test.ts`](server/src/ws.test.ts). Client: `mergeResults`, live socket hook, API URL helpers, vote view derivation under pending + live updates.
 
@@ -214,6 +214,10 @@ npm run lint --workspace=@polling/shared
 ## Shared types
 
 Cross-package types live in [`shared/`](shared/).
+
+## Known limitations
+
+The voter id is a mock. The browser stores it in `localStorage` under `poll-user-id` and sends it as `x-user-id`. The server rejects a second vote for that id and the active poll. Clearing storage, or sending a different header, starts a new voter. An IP check would block people who share a network. A real fix needs authentication, which [the spec](docs/PRODUCT_SPEC.md) lists as a non-goal.
 
 ## Product spec
 

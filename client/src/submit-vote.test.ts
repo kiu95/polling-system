@@ -25,7 +25,41 @@ describe('submitVote', () => {
     });
   });
 
-  it('returns a network error when the request throws', async () => {
+  it('locks the stored option when the submit throws but the vote is saved', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+        }
+        return jsonResponse({ pollId: 'poll-1', optionId: 'opt-web' }, 200);
+      }),
+    );
+
+    await expect(submitVote('user-1', 'opt-web')).resolves.toEqual({
+      optionId: 'opt-web',
+      status: 'voted',
+    });
+  });
+
+  it('returns a network error when the submit throws and no vote is stored', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+        }
+        return jsonResponse({ pollId: 'poll-1', optionId: null }, 200);
+      }),
+    );
+
+    await expect(submitVote('user-1', 'opt-web')).resolves.toEqual({
+      message: 'Network problem. Vote was not saved.',
+      status: 'error',
+    });
+  });
+
+  it('asks for a refresh when the submit and the follow-up both fail', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
@@ -34,7 +68,7 @@ describe('submitVote', () => {
     );
 
     await expect(submitVote('user-1', 'opt-web')).resolves.toEqual({
-      message: 'Network problem. Vote was not saved.',
+      message: 'Could not confirm your vote. Refresh to check.',
       status: 'error',
     });
   });
