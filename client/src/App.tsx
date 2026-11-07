@@ -1,9 +1,10 @@
 import type { ActivePoll, MyVote, PollResults } from '@scmp/shared';
 import { type FC, useEffect, useState } from 'react';
-import { apiUrl } from './api';
+import { apiUrl, fetchResults } from './api';
+import { liveStatusLabel, useLiveResults } from './use-live-results';
 import { readUserId } from './user-id';
 import { VotePanel } from './VotePanel';
-import { applyStoredVote } from './vote-state';
+import { mergeResults } from './vote-state';
 
 type ViewState =
   | { status: 'loading' }
@@ -22,6 +23,24 @@ const columnClass = 'mx-auto flex w-full max-w-lg flex-col justify-center px-4 p
 export const App: FC = () => {
   const [userId] = useState(() => readUserId(localStorage, () => crypto.randomUUID()));
   const [view, setView] = useState<ViewState>({ status: 'loading' });
+  const liveStatus = useLiveResults(view.status === 'ready', (results) => {
+    setView((current) => {
+      if (current.status !== 'ready') {
+        return current;
+      }
+      const merged = mergeResults(current.results, results);
+      if (merged === current.results) {
+        return current;
+      }
+      return {
+        poll: current.poll,
+        results: merged,
+        status: 'ready',
+        healthOk: current.healthOk,
+        serverOptionId: current.serverOptionId,
+      };
+    });
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -71,11 +90,32 @@ export const App: FC = () => {
       }
       return {
         poll: current.poll,
-        results: applyStoredVote(current.results, optionId),
+        results: current.results,
         status: 'ready',
         healthOk: current.healthOk,
         serverOptionId: optionId,
       };
+    });
+    void fetchResults().then((results) => {
+      if (!results) {
+        return;
+      }
+      setView((current) => {
+        if (current.status !== 'ready') {
+          return current;
+        }
+        const merged = mergeResults(current.results, results);
+        if (merged === current.results) {
+          return current;
+        }
+        return {
+          poll: current.poll,
+          results: merged,
+          status: 'ready',
+          healthOk: current.healthOk,
+          serverOptionId: current.serverOptionId,
+        };
+      });
     });
   };
 
@@ -102,7 +142,9 @@ export const App: FC = () => {
   return (
     <main className={pageClass}>
       <div className={columnClass}>
-        <p className="mb-6 text-sm text-zinc-500">Health: {view.healthOk ? 'OK' : 'not ok'}</p>
+        <p className="mb-6 text-sm text-zinc-500">
+          Health: {view.healthOk ? 'OK' : 'not ok'} · {liveStatusLabel(liveStatus)}
+        </p>
         <VotePanel
           userId={userId}
           poll={view.poll}

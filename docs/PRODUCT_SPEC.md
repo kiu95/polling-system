@@ -1,7 +1,7 @@
 # High-Concurrency Polling System — Product Spec
 
 **Approach:** Agentic coding (Cursor, Opencode, etc.)  
-**Stack (project decision):** Vite + React + TypeScript · Fastify + TypeScript · SQLite · HTTP polling · Vitest · Docker Compose (deliverable polish)
+**Stack (project decision):** Vite + React + TypeScript · Fastify + TypeScript · SQLite · WebSocket live results · Vitest · Docker Compose (deliverable polish)
 
 ## Objective
 
@@ -21,7 +21,7 @@ Build a full-stack web application where users vote on poll questions and view r
 
 - Display current vote counts and percentages for the poll.
 - Keep results up to date via polling, WebSockets, or Server-Sent Events.
-  - **Project default:** HTTP polling (SSE/WebSocket only if time allows).
+  - **Shipped:** WebSocket `GET /ws` (issue #4 text allowed polling; this repo uses push).
 
 ### 1.3 API (Node.js backend)
 
@@ -76,7 +76,7 @@ Repo: [`kiu95/scmp-polling-system`](https://github.com/kiu95/scmp-polling-system
 | [#1](https://github.com/kiu95/scmp-polling-system/issues/1) | Local scaffold (no Docker) |
 | [#2](https://github.com/kiu95/scmp-polling-system/issues/2) | Backend APIs + atomic votes + anti-double-vote + 15% failure sim |
 | [#3](https://github.com/kiu95/scmp-polling-system/issues/3) | Frontend optimistic UI + rollback |
-| [#4](https://github.com/kiu95/scmp-polling-system/issues/4) | Results dashboard + HTTP polling |
+| [#4](https://github.com/kiu95/scmp-polling-system/issues/4) | Results dashboard + WebSocket live refresh |
 | [#5](https://github.com/kiu95/scmp-polling-system/issues/5) | Critical tests + Docker Compose + `AGENT_WORKFLOW.md` + polish |
 
 ---

@@ -31,10 +31,15 @@ The product spec and GitHub issues are the source of scope. The assistant does n
     - Failed `409` follow-up is `blocked` (buttons stay disabled). Message still says refresh.
     - A `200` whose JSON cannot be read locks the option that was posted, not a network error.
     - Left as-is: system `font-serif` (no webfont), no React Testing Library on `VotePanel`, and prompt item 11’s “instability runs before `insertVote`” sentence (history; item 12 is the correction).
+17. **[GitHub issue #4](https://github.com/kiu95/scmp-polling-system/issues/4) — live results (plan todo 1).** User approved plan with WebSocket preferred over issue default HTTP polling. First todo only: `ResultsMessage` in [`shared/src/index.ts`](shared/src/index.ts) (`type: 'results'` + `PollResults`). Server WS, client hook, and docs stayed out.
+18. **Issue #4 plan todos 2–5.** User said `work 2nd - 5th todo`. Scope: `@fastify/websocket`, [`server/src/results-hub.ts`](server/src/results-hub.ts), `GET /ws` plus broadcast after a successful `insertVote`, [`server/src/ws.test.ts`](server/src/ws.test.ts), `mergeResults` and pending baseline in [`client/src/vote-state.ts`](client/src/vote-state.ts), [`client/src/use-live-results.ts`](client/src/use-live-results.ts) (backoff, resync on reconnect, close on unmount), Vite `/ws` proxy, accept path refetches `GET /results` instead of `applyStoredVote`. README stayed on the docs todo. Optimistic rule: pending +1 only while `results.total` is still at the click-time baseline; a newer snapshot replaces counts; a lower total or other `pollId` is ignored.
+19. **Issue #4 commits by todo.** User asked to commit by plan todo and ignore this file. Five commits on `feat/4-live-result-websockets`: shared `ResultsMessage`, server WS hub, client `mergeResults`, live hook + proxy, `App`/`VotePanel` reconcile.
+20. **Issue #4 plan todos docs + verify.** User said `work remaining todo`, then summarize here. Scope: [`README.md`](README.md), [`client/.env.example`](client/.env.example), workflow summary below; `npm run lint`, `npm run typecheck`, `npm test`; manual check — two tabs on `http://127.0.0.1:5173/` with `VOTE_INSTABILITY=off`, external `POST /vote` updated Print count on both without reload (**Live**).
+21. **PR #9 review.** User pasted the review. Fixes in this slice: pending overlay baseline is the chosen option’s count (other votes no longer clear it); `/ws` registers close/error before the snapshot send and drops the socket if send throws; broadcast closes a client whose `bufferedAmount` exceeds 1 MiB; first status is **Connecting**; README names [`submit-vote.test.ts`](client/src/submit-vote.test.ts); `readResultsMessage` checks `pollId`, `total`, and option fields; removed unused `applyStoredVote` and `deriveVoteView`’s unused server-option argument; live-socket tests cover open, message, reconnect resync, and stop. [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md) now says WebSocket. Commit `fd081c8` subject typo `pdate` left as-is (already on the remote).
 
 ## Issue #3 — voting UI (summary)
 
-Reference: [issue #3](https://github.com/kiu95/scmp-polling-system/issues/3), [PRODUCT_SPEC §1.1 / §2.2](docs/PRODUCT_SPEC.md). Live results polling stays on [#4](https://github.com/kiu95/scmp-polling-system/issues/4).
+Reference: [issue #3](https://github.com/kiu95/scmp-polling-system/issues/3), [PRODUCT_SPEC §1.1 / §2.2](docs/PRODUCT_SPEC.md). Live count updates are on [#4](#issue-4--live-results-via-websocket-summary) (WebSocket, not HTTP polling).
 
 ### How it was scoped
 
@@ -86,11 +91,49 @@ Reference: [issue #3](https://github.com/kiu95/scmp-polling-system/issues/3), [P
 
 No new assistant-caused defects recorded for issue #3 slices.
 
+## Issue #4 — live results via WebSocket (summary)
+
+Reference: [issue #4](https://github.com/kiu95/scmp-polling-system/issues/4). Issue text defaulted to HTTP polling; user chose WebSocket in plan mode.
+
+### How it was scoped
+
+- Plan mode triage on #4; implementation split into seven todos (shared type → server → merge → hook → reconcile → docs → verify).
+- User gates: todo 1 alone, todos 2–5 together, remaining todo for README + verification; commits per todo (excluding this file).
+
+### What shipped
+
+| Layer | Pieces |
+| ----- | ------ |
+| **Shared** | [`ResultsMessage`](shared/src/index.ts) (`type: 'results'`, `PollResults`). |
+| **Server** | `@fastify/websocket`, [`results-hub.ts`](server/src/results-hub.ts), `GET /ws` in [`app.ts`](server/src/app.ts) (snapshot on connect, broadcast after successful `insertVote` only), [`ws.test.ts`](server/src/ws.test.ts) via `injectWS` (needs `await app.ready()`). |
+| **Client** | [`mergeResults`](client/src/vote-state.ts), pending **baseline** on [`VotePanel`](client/src/VotePanel.tsx), [`use-live-results.ts`](client/src/use-live-results.ts) (`wsUrl`, exponential reconnect cap 15s, `GET /results` after reconnect), [`App.tsx`](client/src/App.tsx) (**Live** / **Reconnecting**, WS-driven `setView`, accept → refetch not `applyStoredVote`), Vite `proxy['/ws'].ws`. |
+
+### Behaviour (acceptance mapping)
+
+| Criterion | Mechanism |
+| --------- | --------- |
+| Counts + percentages | Unchanged UI; data from snapshots + `deriveVoteView`. |
+| Auto-refresh | `useLiveResults` + `mergeResults`; unmount closes socket and timers. |
+| Sensible interval / cleanup | Reconnect backoff 1s → 15s cap; not HTTP polling. |
+| Works with optimistic vote | Pending +1 only while `total <= baselineTotal`; accept refetches; merge ignores stale lower totals. |
+
+### Verification
+
+- `npm run lint`, `npm run typecheck`, `npm test` (16 server + 24 client).
+- `npm run dev` with `VOTE_INSTABILITY=off`; two browser tabs; vote via API as another user → both tabs showed updated Print count with **Live**.
+
+### Docs touched
+
+- README: `/ws` proxy, WebSocket message shape, optimistic vs live rules, test paths.
+- `.env.example`: `/ws` in proxy comment.
+
+GitHub issue #4 may still show open until closed there.
+
 ## What was built under that strategy
 
 - Root `.gitignore`, `README.md`, and an npm workspace for `@scmp/shared` (`ActivePoll`, `PollOption`).
-- `@scmp/server`: Fastify `GET /health`, `GET /poll`, `GET /results`, `POST /vote` (instability on vote only), CORS, SQLite file `server/data/poll.db`, WAL, foreign keys, schema for `polls` / `options` / `votes`, seed of `poll-1` only when that id is missing, Vitest in `server/src/app.test.ts` and `server/src/vote.test.ts` (in-memory DB).
-- `@scmp/client`: Vite React + Tailwind v4; dev proxy for poll/vote/results paths; optimistic voting UI — see [Issue #3 summary](#issue-3--voting-ui-summary).
+- `@scmp/server`: Fastify `GET /health`, `GET /poll`, `GET /results`, `POST /vote`, `GET /ws` (WebSocket results push), instability on vote only, CORS, SQLite file `server/data/poll.db`, WAL, foreign keys, schema for `polls` / `options` / `votes`, seed of `poll-1` only when that id is missing, Vitest in `server/src/app.test.ts`, `server/src/vote.test.ts`, and `server/src/ws.test.ts` (in-memory DB).
+- `@scmp/client`: Vite React + Tailwind v4; dev proxy for poll/vote/results/ws; optimistic voting UI — see [Issue #3 summary](#issue-3--voting-ui-summary); live results over WebSocket — see [Issue #4 summary](#issue-4--live-results-via-websocket-summary).
 - Root scripts: `npm run dev`, `npm test`, `npm run build`, `npm run seed`, `npm run lint` / `npm run lint:fix` (see [`package.json`](package.json)). Root [`package.json`](package.json) has `"engines": { "node": ">=24" }`; [`.nvmrc`](.nvmrc) pins 24 for nvm. `pretest` runs `build` on `@scmp/shared` so `npm test` works without a manual shared build.
 - Verified on this machine: second seed still leaves 1 poll and 3 options; `GET /health` returns `{"ok":true}`; `GET /poll` returns the seed question and Web / App / Print; `journal_mode` is `wal`. Browser at `http://127.0.0.1:5173/` showed Health OK, “Which format do you read most?”, and Web / App / Print.
 
@@ -150,6 +193,22 @@ Symptom: Fastify logs show `GET /`, `GET /json/version` on 3000 right after `npm
 
 Symptom: with `VOTE_INSTABILITY` left on, a second vote from the same user could return `500 simulated_failure` instead of `409 already_voted`. Unknown options and a missing poll had the same gap. Cause: `POST /vote` called `applyVoteInstability` before `insertVote`, so chaos applied to requests that were never going to insert. Fix: `assessVote` first; instability only after that returns ok; `insertVote` still enforces the unique constraint for races. Test covers the already-voted plus forced-fail path. Assistant fixed after the PR #7 review; the user did not edit it by hand.
 
+### `injectWS` hung until `app.ready()`
+
+Symptom: both `GET /ws` tests timed out at 5000ms inside `app.injectWS`. Cause: `@fastify/websocket`'s `injectWS` does not call `ready()`, so the upgrade never completed and the client `open` event never fired. Fix: `await app.ready()` in the test `beforeEach`. Assistant fixed it after the test run; the user did not edit it by hand.
+
+### Pending overlay used the poll total
+
+Symptom: while a vote was pending, another user’s vote raised `total` and the local +1 disappeared until the POST finished. Cause: `deriveVoteView` treated any higher `total` as “my vote is already in the snapshot.” Fix: baseline is the chosen option’s count. Overlay stays while that count has not moved. PR #9 review; assistant fixed it; the user did not edit it by hand.
+
+### Snapshot send ran before socket cleanup
+
+Symptom: a throw from the initial `socket.send` could leave the socket in the hub until a later broadcast. Cause: `close` / `error` listeners were registered after the send. Fix: register those listeners first, and `remove` the socket if send throws. Same review.
+
+### First paint said Reconnecting
+
+Symptom: the header showed **Reconnecting** before the socket had ever opened. Cause: the hook’s initial status was `reconnecting`. Fix: initial status `connecting`, label **Connecting**. Same review.
+
 ### `npm audit` after Vitest
 
 Symptom: `npm install` pulled Vitest and reported `3 vulnerabilities (1 moderate, 2 critical)` in transitive packages. Cause: new dev dependency tree, not triaged here. Fix: none in this slice; run `npm audit` locally before production or pin overrides if needed.
@@ -162,4 +221,4 @@ Symptom: `npm install` pulled Vitest and reported `3 vulnerabilities (1 moderate
 
 ## Still not done
 
-HTTP polling of results from the browser ([#4](https://github.com/kiu95/scmp-polling-system/issues/4)) and Docker Compose ([#5](https://github.com/kiu95/scmp-polling-system/issues/5)). Issue #3 client work is described in [Issue #3 summary](#issue-3--voting-ui-summary); GitHub issue may still be open until closed there.
+Docker Compose and deliverable polish ([#5](https://github.com/kiu95/scmp-polling-system/issues/5)). Issue #4 implementation is summarized in [Issue #4 summary](#issue-4--live-results-via-websocket-summary); GitHub issues may still be open until closed there.

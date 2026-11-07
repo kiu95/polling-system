@@ -37,35 +37,25 @@ function selectedId(phase: VotePhase): string | null {
   return null;
 }
 
-export function applyStoredVote(results: PollResults, optionId: string): PollResults {
-  if (!results.options.some((option) => option.id === optionId)) {
-    return results;
+export function mergeResults(current: PollResults, incoming: PollResults): PollResults {
+  if (incoming.pollId !== current.pollId || incoming.total < current.total) {
+    return current;
   }
-
-  const total = results.total + 1;
-  return {
-    total,
-    pollId: results.pollId,
-    options: results.options.map((option) => {
-      const count = option.id === optionId ? option.count + 1 : option.count;
-      return {
-        count,
-        id: option.id,
-        label: option.label,
-        percentage: votePercentage(count, total),
-      };
-    }),
-  };
+  return incoming;
 }
 
 export function deriveVoteView(
   results: PollResults,
-  _serverOptionId: string | null,
   phase: VotePhase,
+  baselineCount: number | null = null,
 ): VoteView {
   const selectedOptionId = selectedId(phase);
+  const selectedCount =
+    results.options.find((option) => option.id === selectedOptionId)?.count ?? 0;
+  const pendingBump =
+    phase.status === 'pending' && (baselineCount === null || selectedCount <= baselineCount);
   const counts = results.options.map((option) =>
-    phase.status === 'pending' && option.id === selectedOptionId ? option.count + 1 : option.count,
+    pendingBump && option.id === selectedOptionId ? option.count + 1 : option.count,
   );
   const total = counts.reduce((sum, count) => sum + count, 0);
 

@@ -18,6 +18,7 @@ export default defineConfig({
       '/vote': apiOrigin,
       '/health': apiOrigin,
       '/results': apiOrigin,
+      '/ws': { target: apiOrigin, ws: true },
     },
   },
 });
