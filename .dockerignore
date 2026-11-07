@@ -1,0 +1,13 @@
+.git
+.cursor
+.agents
+.husky
+node_modules
+**/node_modules
+**/dist
+server/data
+coverage
+*.md
+.env
+.env.*
+!.env.example

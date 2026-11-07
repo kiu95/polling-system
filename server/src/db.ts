@@ -48,7 +48,11 @@ const SEED_POLL = {
   ] satisfies SeedOption[],
 };
 
-export function resolveDatabasePath(): string {
+export function resolveDatabasePath(env: NodeJS.ProcessEnv = process.env): string {
+  const override = env.DATABASE_PATH?.trim();
+  if (override) {
+    return override;
+  }
   const here = path.dirname(fileURLToPath(import.meta.url));
   return path.join(here, '..', 'data', 'poll.db');
 }

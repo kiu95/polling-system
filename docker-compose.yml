@@ -1,0 +1,38 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      CORS_ORIGIN: off
+      DATABASE_PATH: /data/poll.db
+      HOST: 0.0.0.0
+      PORT: 3000
+      VOTE_INSTABILITY: ${VOTE_INSTABILITY:-on}
+    volumes:
+      - poll-data:/data
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    ports:
+      - '8080:80'
+    depends_on:
+      server:
+        condition: service_healthy
+
+volumes:
+  poll-data:

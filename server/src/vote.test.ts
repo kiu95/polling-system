@@ -107,6 +107,37 @@ describe('POST /vote and GET /results', () => {
     expect(rows.n).toBe(100);
   });
 
+  it('keeps option totals when concurrent votes split across options', async () => {
+    const optionIds = ['opt-web', 'opt-app', 'opt-print'] as const;
+    const total = 99;
+    const responses = await Promise.all(
+      Array.from({ length: total }, (_, index) =>
+        app.inject({
+          headers: jsonHeaders(`split-${index}`),
+          method: 'POST',
+          payload: votePayload(optionIds[index % optionIds.length] ?? 'opt-web'),
+          url: '/vote',
+        }),
+      ),
+    );
+
+    expect(responses.every((response) => response.statusCode === 200)).toBe(true);
+
+    const results = await app.inject({ method: 'GET', url: '/results' });
+    const body = results.json() as {
+      total: number;
+      options: Array<{ id: string; count: number }>;
+    };
+    expect(body.total).toBe(total);
+    expect(body.options.reduce((sum, option) => sum + option.count, 0)).toBe(total);
+    for (const optionId of optionIds) {
+      expect(body.options.find((option) => option.id === optionId)?.count).toBe(total / 3);
+    }
+
+    const rows = db.prepare('SELECT COUNT(*) AS n FROM votes').get() as { n: number };
+    expect(rows.n).toBe(total);
+  });
+
   it('serializes duplicate submits from the same user', async () => {
     const [first, second] = await Promise.all([
       app.inject({
