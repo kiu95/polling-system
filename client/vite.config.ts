@@ -14,7 +14,9 @@ export default defineConfig({
     host: '127.0.0.1',
     proxy: {
       '/poll': apiOrigin,
+      '/vote': apiOrigin,
       '/health': apiOrigin,
+      '/results': apiOrigin,
     },
   },
 });
