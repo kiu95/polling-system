@@ -1,4 +1,4 @@
-import type { ActivePoll, PollResults } from '@scmp/shared';
+import type { ActivePoll, PollResults } from '@polling/shared';
 import { type FC, useRef, useState } from 'react';
 import { submitVote } from './submit-vote';
 import { deriveVoteView, type VotePhase } from './vote-state';

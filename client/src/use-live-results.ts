@@ -1,4 +1,4 @@
-import type { PollResultOption, PollResults, ResultsMessage } from '@scmp/shared';
+import type { PollResultOption, PollResults, ResultsMessage } from '@polling/shared';
 import { useEffect, useRef, useState } from 'react';
 import { fetchResults, wsUrl } from './api';
 

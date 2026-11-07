@@ -1,4 +1,4 @@
-import type { PollResults } from '@scmp/shared';
+import type { PollResults } from '@polling/shared';
 import { describe, expect, it } from 'vitest';
 import { deriveVoteView, mergeResults, type VotePhase } from './vote-state';
 

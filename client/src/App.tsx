@@ -1,4 +1,4 @@
-import type { ActivePoll, MyVote, PollResults } from '@scmp/shared';
+import type { ActivePoll, MyVote, PollResults } from '@polling/shared';
 import { type FC, useEffect, useState } from 'react';
 import { apiUrl, fetchResults } from './api';
 import { liveStatusLabel, useLiveResults } from './use-live-results';

@@ -69,15 +69,15 @@ Prevent the same user from voting multiple times on the same poll (simple mock u
 
 ## 4. Project tracking (issues)
 
-Repo: [`kiu95/scmp-polling-system`](https://github.com/kiu95/scmp-polling-system)
+Repo: [`kiu95/polling-system`](https://github.com/kiu95/polling-system)
 
 | Issue | Scope |
 |-------|--------|
-| [#1](https://github.com/kiu95/scmp-polling-system/issues/1) | Local scaffold (no Docker) |
-| [#2](https://github.com/kiu95/scmp-polling-system/issues/2) | Backend APIs + atomic votes + anti-double-vote + 15% failure sim |
-| [#3](https://github.com/kiu95/scmp-polling-system/issues/3) | Frontend optimistic UI + rollback |
-| [#4](https://github.com/kiu95/scmp-polling-system/issues/4) | Results dashboard + WebSocket live refresh |
-| [#5](https://github.com/kiu95/scmp-polling-system/issues/5) | Critical tests + Docker Compose + `AGENT_WORKFLOW.md` + polish |
+| [#1](https://github.com/kiu95/polling-system/issues/1) | Local scaffold (no Docker) |
+| [#2](https://github.com/kiu95/polling-system/issues/2) | Backend APIs + atomic votes + anti-double-vote + 15% failure sim |
+| [#3](https://github.com/kiu95/polling-system/issues/3) | Frontend optimistic UI + rollback |
+| [#4](https://github.com/kiu95/polling-system/issues/4) | Results dashboard + WebSocket live refresh |
+| [#5](https://github.com/kiu95/polling-system/issues/5) | Critical tests + Docker Compose + `AGENT_WORKFLOW.md` + polish |
 
 ---
 

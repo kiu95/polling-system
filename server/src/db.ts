@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { ActivePoll, MyVote, PollResults } from '@scmp/shared';
+import type { ActivePoll, MyVote, PollResults } from '@polling/shared';
 import BetterSqlite3 from 'better-sqlite3';
 
 export type SqliteDatabase = BetterSqlite3.Database;

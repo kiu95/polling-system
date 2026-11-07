@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'scmp-user-id';
+const STORAGE_KEY = 'poll-user-id';
 const MAX_USER_ID_LENGTH = 128;
 
 export interface KeyValueStore {

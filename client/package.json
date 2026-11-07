@@ -1,5 +1,5 @@
 {
-  "name": "@scmp/client",
+  "name": "@polling/client",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@scmp/shared": "*",
+    "@polling/shared": "*",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

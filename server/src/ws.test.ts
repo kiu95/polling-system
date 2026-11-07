@@ -1,4 +1,4 @@
-import type { ResultsMessage } from '@scmp/shared';
+import type { ResultsMessage } from '@polling/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 import { initDatabase, openDatabase, type SqliteDatabase } from './db.js';

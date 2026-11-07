@@ -1,6 +1,6 @@
-# SCMP Polling System
+# Polling System
 
-Live poll with optimistic voting, rollback on failed submits, and WebSocket result pushes. Run locally with Node ([issue #1](https://github.com/kiu95/scmp-polling-system/issues/1)) or as a full stack via Docker Compose ([issue #5](https://github.com/kiu95/scmp-polling-system/issues/5)).
+Live poll with optimistic voting, rollback on failed submits, and WebSocket result pushes. Run locally with Node ([issue #1](https://github.com/kiu95/polling-system/issues/1)) or as a full stack via Docker Compose ([issue #5](https://github.com/kiu95/polling-system/issues/5)).
 
 ## Stack
 
@@ -29,11 +29,11 @@ From the repository root:
 npm install
 ```
 
-Build [`shared/`](shared/) before TypeScript resolves `@scmp/shared` in other packages. Root `pretest` and `predev` run that build automatically; if you run `npm run test` or `npm run dev --workspace=@scmp/server` **without** going through those hooks, run `npm run build --workspace=@scmp/shared` once first.
+Build [`shared/`](shared/) before TypeScript resolves `@polling/shared` in other packages. Root `pretest` and `predev` run that build automatically; if you run `npm run test` or `npm run dev --workspace=@polling/server` **without** going through those hooks, run `npm run build --workspace=@polling/shared` once first.
 
 ## Run both (root)
 
-API on 3000 and Vite on 5173 together. `predev` builds [`shared/`](shared/) so server and client can resolve `@scmp/shared`.
+API on 3000 and Vite on 5173 together. `predev` builds [`shared/`](shared/) so server and client can resolve `@polling/shared`.
 
 ```bash
 npm run dev
@@ -48,8 +48,8 @@ To hit the API without the proxy, set `VITE_API_URL` to `http://127.0.0.1:3000` 
 ## Run one package only
 
 ```bash
-npm run dev --workspace=@scmp/server
-npm run dev --workspace=@scmp/client
+npm run dev --workspace=@polling/server
+npm run dev --workspace=@polling/client
 ```
 
 Seed the on-disk DB without keeping the process up:
@@ -69,7 +69,7 @@ curl -s http://127.0.0.1:3000/results
 `POST /vote` is unstable by default (about 15% `500` or a ~3s wait). Start the API with `VOTE_INSTABILITY=off` before this curl if you want a stable `200`:
 
 ```bash
-VOTE_INSTABILITY=off npm run dev --workspace=@scmp/server
+VOTE_INSTABILITY=off npm run dev --workspace=@polling/server
 curl -s -X POST http://127.0.0.1:3000/vote \
   -H 'Content-Type: application/json' \
   -H 'x-user-id: demo-user' \
@@ -94,7 +94,7 @@ curl -s http://127.0.0.1:3000/vote -H 'x-user-id: demo-user'
 
 ### Vote instability (local practice)
 
-By default the server enables **unstable vote submits** for frontend rollback drills (see [issue #2](https://github.com/kiu95/scmp-polling-system/issues/2)): about **15%** of votes that pass validation either return **`500`** with `{ "error": "simulated_failure" }` (no row written) or **wait about 3 seconds** then succeed. Duplicate votes, unknown options, and a missing poll stay `409` / `400` / `404`.
+By default the server enables **unstable vote submits** for frontend rollback drills (see [issue #2](https://github.com/kiu95/polling-system/issues/2)): about **15%** of votes that pass validation either return **`500`** with `{ "error": "simulated_failure" }` (no row written) or **wait about 3 seconds** then succeed. Duplicate votes, unknown options, and a missing poll stay `409` / `400` / `404`.
 
 Turn it off for predictable curls and tests:
 
@@ -157,7 +157,7 @@ Browser ──► Vite (dev) or nginx (Docker) ──► Fastify
 
 ```bash
 npm run build
-npm run start --workspace=@scmp/server
+npm run start --workspace=@polling/server
 ```
 
 ## Test
@@ -166,9 +166,9 @@ npm run start --workspace=@scmp/server
 npm test
 ```
 
-`pretest` builds `@scmp/shared` so workspace tests resolve types and package exports. Vitest runs in both workspaces ([`server/vitest.config.ts`](server/vitest.config.ts), [`client/vite.config.ts`](client/vite.config.ts) `test` block).
+`pretest` builds `@polling/shared` so workspace tests resolve types and package exports. Vitest runs in both workspaces ([`server/vitest.config.ts`](server/vitest.config.ts), [`client/vite.config.ts`](client/vite.config.ts) `test` block).
 
-**Critical failure-mode suites** (assignment [#5](https://github.com/kiu95/scmp-polling-system/issues/5)):
+**Critical failure-mode suites** (assignment [#5](https://github.com/kiu95/polling-system/issues/5)):
 
 | Area | File | What it proves |
 | ---- | ---- | -------------- |
@@ -206,9 +206,9 @@ npm run lint:fix
 Per package:
 
 ```bash
-npm run lint --workspace=@scmp/client
-npm run lint --workspace=@scmp/server
-npm run lint --workspace=@scmp/shared
+npm run lint --workspace=@polling/client
+npm run lint --workspace=@polling/server
+npm run lint --workspace=@polling/shared
 ```
 
 ## Shared types

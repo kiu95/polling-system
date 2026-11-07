@@ -1,4 +1,4 @@
-import type { PollResults, ResultsMessage } from '@scmp/shared';
+import type { PollResults, ResultsMessage } from '@polling/shared';
 
 const SOCKET_OPEN = 1;
 

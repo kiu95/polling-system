@@ -1,4 +1,4 @@
-import type { PollResults } from '@scmp/shared';
+import type { PollResults } from '@polling/shared';
 import { describe, expect, it } from 'vitest';
 import { createResultsHub, MAX_BUFFERED_BYTES, type ResultsClient } from './results-hub.js';
 

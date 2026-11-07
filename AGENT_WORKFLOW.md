@@ -1,6 +1,6 @@
 # Agent workflow
 
-How the coding assistant was guided on this repo, and which of its choices had to be corrected. Written 2026-11-06, during the local scaffold ([issue #1](https://github.com/kiu95/scmp-polling-system/issues/1)). Backend, UI, WebSocket results, and Docker Compose deliverables are summarized below. [Issue #5](https://github.com/kiu95/scmp-polling-system/issues/5) implementation is on branch `feat/5-docker-compose` until merged. This file records what already happened. It is not a claim that open GitHub issues are closed until the repo or issue says so.
+How the coding assistant was guided on this repo, and which of its choices had to be corrected. Written 2026-11-06, during the local scaffold ([issue #1](https://github.com/kiu95/polling-system/issues/1)). Backend, UI, WebSocket results, and Docker Compose deliverables are summarized below. [Issue #5](https://github.com/kiu95/polling-system/issues/5) implementation is on branch `feat/5-docker-compose` until merged. This file records what already happened. It is not a claim that open GitHub issues are closed until the repo or issue says so.
 
 ## Prompt strategy
 
@@ -11,32 +11,32 @@ The product spec and GitHub issues are the source of scope. The assistant does n
 3. **Slice by todo.** "Go for the first 2" stopped at `.gitignore`, `README.md`, and `shared/` types. "Go for the 3rd" stopped at the Fastify server. "Go for the 4th" was server Vitest only (`app.test.ts`, `vitest.config.ts`, `package.json` `test`). Client, root `dev` / `test`, and concurrent install stayed out.
 4. **Check the machine, not the plan.** A written plan that says `better-sqlite3` is not evidence the native module installs. `npm install`, `tsc`, a double seed, and `curl` against a running server are the check.
 5. **Keep this file current.** The user asked for a Cursor rule, not another feature. `.cursor/rules/agent-workflow.mdc` (`alwaysApply`) now requires each later slice to append prompt strategy and any assistant-caused defect here, in the same change. No new defect in that step.
-6. **Fourth todo (Vitest smoke).** User said `go for 4th todo item`; scope was `@scmp/server` only: Vitest `inject` for `GET /health` and `GET /poll`, `:memory:` DB with `initDatabase` called twice to assert idempotent seed. Root `npm run test`, client, and concurrent `dev` stayed out.
-7. **Fifth todo (client page).** User said `go for 5th todo item`. Scope was `@scmp/client`: Vite React page, dev proxy for `/health` and `/poll`, render health OK and the seed question. No vote button. Root `dev` / `concurrently` stayed on the sixth todo. `client` was added to workspaces so `npm install` can see the package.
-8. **Sixth todo (root scripts).** User said `go remaining todo`. Scope was root `package.json` scripts: `dev` runs server and client with `concurrently`, `predev` builds `@scmp/shared`, `build` builds shared then server then client, `test` runs both workspaces, `seed` delegates to the server. README updated for the one-command flow.
-9. **Biome.** User asked to add Biome for linting and formatting on `client` and `server`. Later the same user asked to include [`shared/`](shared/) in root `lint` / `lint:fix` and matching scripts on `@scmp/shared`.
+6. **Fourth todo (Vitest smoke).** User said `go for 4th todo item`; scope was `@polling/server` only: Vitest `inject` for `GET /health` and `GET /poll`, `:memory:` DB with `initDatabase` called twice to assert idempotent seed. Root `npm run test`, client, and concurrent `dev` stayed out.
+7. **Fifth todo (client page).** User said `go for 5th todo item`. Scope was `@polling/client`: Vite React page, dev proxy for `/health` and `/poll`, render health OK and the seed question. No vote button. Root `dev` / `concurrently` stayed on the sixth todo. `client` was added to workspaces so `npm install` can see the package.
+8. **Sixth todo (root scripts).** User said `go remaining todo`. Scope was root `package.json` scripts: `dev` runs server and client with `concurrently`, `predev` builds `@polling/shared`, `build` builds shared then server then client, `test` runs both workspaces, `seed` delegates to the server. README updated for the one-command flow.
+9. **Biome.** User asked to add Biome for linting and formatting on `client` and `server`. Later the same user asked to include [`shared/`](shared/) in root `lint` / `lint:fix` and matching scripts on `@polling/shared`.
 10. **PR #6 review (pre-merge).** Review pasted in chat: add Node `engines` and README Node version; `pretest` builds shared; CORS comment for local-only
-11. **[GitHub issue #2](https://github.com/kiu95/scmp-polling-system/issues/2) — backend poll / vote / results (plan todos).** Delivered in order; user drove with `go 1st todo item` through `remaining todo`.
+11. **[GitHub issue #2](https://github.com/kiu95/polling-system/issues/2) — backend poll / vote / results (plan todos).** Delivered in order; user drove with `go 1st todo item` through `remaining todo`.
     - **Shared types** ([`shared/src/index.ts`](shared/src/index.ts)): `VoteAccepted`, `PollResultOption`, `PollResults`. Property-sort order (`pollId` before `optionId`; `total` before `pollId`; `count` before `label`). Nothing else in that slice.
     - **DB** ([`server/src/db.ts`](server/src/db.ts)): `busy_timeout`, `insertVote` in a transaction (unique `(user_id, poll_id)` → `already_voted`), `getResults` via `COUNT` and one-decimal percentage. No stored vote counter.
     - **Instability** ([`server/src/vote-instability.ts`](server/src/vote-instability.ts), [`server/src/index.ts`](server/src/index.ts), config on `buildApp`): `voteInstabilityFromEnv` (on unless `VOTE_INSTABILITY=off`), `applyVoteInstability` (~`VOTE_FAILURE_RATE`, then half fail / half delay). Tests default omitted config so they do not roll the sim until routes opt in with injected config.
     - **Routes** ([`server/src/app.ts`](server/src/app.ts)): `POST /vote` (`x-user-id`, body `optionId`); instability runs before `insertVote`; `GET /results`. Statuses: `200` / `400` (`invalid_user_id`, `invalid_option_id`, `invalid_option`) / `404` (`no_active_poll`) / `409` (`already_voted`) / `500` (`simulated_failure`). That slice did not add `vote.test.ts`, README, or Vite proxy.
     - **Tests + docs** ([`server/src/vote.test.ts`](server/src/vote.test.ts), [`README.md`](README.md), this file): Vitest covers happy path, `409`, 100 parallel users same option, parallel duplicate user, validation, empty DB, forced `500` and delay. README: curls, env (`VOTE_INSTABILITY`, `VOTE_FAILURE_RATE`, `VOTE_DELAY_MS`), note Vite still proxies only `/health` and `/poll` until issue #3. No [`client/vite.config.ts`](client/vite.config.ts) proxy for `/vote` or `/results`.
 12. **PR #7 review.** User pasted the review. Scope: run eligibility (`assessVote`) before `applyVoteInstability`, so a second vote, a bad option, and a missing poll stay `409` / `400` / `404` while chaos is on; `simulated_failure` only when the insert would otherwise succeed. Removed unused `app.decorate('voteInstability')`. README puts `VOTE_INSTABILITY=off` on the vote curl. Test: already-voted user plus a forced-fail config still returns `409` and does not roll. Happy-path results assert zero-vote percentages and `100` after one vote.
-13–14. **[GitHub issue #3](https://github.com/kiu95/scmp-polling-system/issues/3) — voting UI.** User drove `work on first 5 todo items` then `work remaining todo` (docs only). Grouped record: [Issue #3 — voting UI (summary)](#issue-3--voting-ui-summary).
-15. **Issue #3 ship.** User asked to group the workflow summary, then split **six commits** by plan todo, push `feat/3-voting-ui`, open [PR #8](https://github.com/kiu95/scmp-polling-system/pull/8). Vite proxy commit landed before Tailwind so `vite.config.ts` grows in two commits. The branch then gained a seventh commit for this split note.
+13–14. **[GitHub issue #3](https://github.com/kiu95/polling-system/issues/3) — voting UI.** User drove `work on first 5 todo items` then `work remaining todo` (docs only). Grouped record: [Issue #3 — voting UI (summary)](#issue-3--voting-ui-summary).
+15. **Issue #3 ship.** User asked to group the workflow summary, then split **six commits** by plan todo, push `feat/3-voting-ui`, open [PR #8](https://github.com/kiu95/polling-system/pull/8). Vite proxy commit landed before Tailwind so `vite.config.ts` grows in two commits. The branch then gained a seventh commit for this split note.
 16. **PR #8 review.** User pasted the review. No blockers. Fixes in the same slice:
-    - Optimistic +1 only while `pending`. A successful vote calls `onVoteAccepted`, which sets `serverOptionId` and `applyStoredVote` once. A later `GET /results` poll ([#4](https://github.com/kiu95/scmp-polling-system/issues/4)) must replace `results` and must not add another local +1 on `voted`.
+    - Optimistic +1 only while `pending`. A successful vote calls `onVoteAccepted`, which sets `serverOptionId` and `applyStoredVote` once. A later `GET /results` poll ([#4](https://github.com/kiu95/polling-system/issues/4)) must replace `results` and must not add another local +1 on `voted`.
     - [`submit-vote.test.ts`](client/src/submit-vote.test.ts): `500`, timeout, `409` lock, failed follow-up read, unreadable `200` body.
     - Failed `409` follow-up is `blocked` (buttons stay disabled). Message still says refresh.
     - A `200` whose JSON cannot be read locks the option that was posted, not a network error.
     - Left as-is: system `font-serif` (no webfont), no React Testing Library on `VotePanel`, and prompt item 11’s “instability runs before `insertVote`” sentence (history; item 12 is the correction).
-17. **[GitHub issue #4](https://github.com/kiu95/scmp-polling-system/issues/4) — live results (plan todo 1).** User approved plan with WebSocket preferred over issue default HTTP polling. First todo only: `ResultsMessage` in [`shared/src/index.ts`](shared/src/index.ts) (`type: 'results'` + `PollResults`). Server WS, client hook, and docs stayed out.
+17. **[GitHub issue #4](https://github.com/kiu95/polling-system/issues/4) — live results (plan todo 1).** User approved plan with WebSocket preferred over issue default HTTP polling. First todo only: `ResultsMessage` in [`shared/src/index.ts`](shared/src/index.ts) (`type: 'results'` + `PollResults`). Server WS, client hook, and docs stayed out.
 18. **Issue #4 plan todos 2–5.** User said `work 2nd - 5th todo`. Scope: `@fastify/websocket`, [`server/src/results-hub.ts`](server/src/results-hub.ts), `GET /ws` plus broadcast after a successful `insertVote`, [`server/src/ws.test.ts`](server/src/ws.test.ts), `mergeResults` and pending baseline in [`client/src/vote-state.ts`](client/src/vote-state.ts), [`client/src/use-live-results.ts`](client/src/use-live-results.ts) (backoff, resync on reconnect, close on unmount), Vite `/ws` proxy, accept path refetches `GET /results` instead of `applyStoredVote`. README stayed on the docs todo. Optimistic rule: pending +1 only while `results.total` is still at the click-time baseline; a newer snapshot replaces counts; a lower total or other `pollId` is ignored.
 19. **Issue #4 commits by todo.** User asked to commit by plan todo and ignore this file. Five commits on `feat/4-live-result-websockets`: shared `ResultsMessage`, server WS hub, client `mergeResults`, live hook + proxy, `App`/`VotePanel` reconcile.
 20. **Issue #4 plan todos docs + verify.** User said `work remaining todo`, then summarize here. Scope: [`README.md`](README.md), [`client/.env.example`](client/.env.example), workflow summary below; `npm run lint`, `npm run typecheck`, `npm test`; manual check — two tabs on `http://127.0.0.1:5173/` with `VOTE_INSTABILITY=off`, external `POST /vote` updated Print count on both without reload (**Live**).
 21. **PR #9 review.** User pasted the review. Fixes in this slice: pending overlay baseline is the chosen option’s count (other votes no longer clear it); `/ws` registers close/error before the snapshot send and drops the socket if send throws; broadcast closes a client whose `bufferedAmount` exceeds 1 MiB; first status is **Connecting**; README names [`submit-vote.test.ts`](client/src/submit-vote.test.ts); `readResultsMessage` checks `pollId`, `total`, and option fields; removed unused `applyStoredVote` and `deriveVoteView`’s unused server-option argument; live-socket tests cover open, message, reconnect resync, and stop. [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md) now says WebSocket. Commit `fd081c8` subject typo `pdate` left as-is (already on the remote).
-22. **[GitHub issue #5](https://github.com/kiu95/scmp-polling-system/issues/5) — first four plan todos.** User said `work first 4 todo`. Scope: server `HOST` / `PORT` / `DATABASE_PATH`, Dockerfiles, Compose, critical-test gate. README Docker section and the fuller workflow pass stayed on later todos.
+22. **[GitHub issue #5](https://github.com/kiu95/polling-system/issues/5) — first four plan todos.** User said `work first 4 todo`. Scope: server `HOST` / `PORT` / `DATABASE_PATH`, Dockerfiles, Compose, critical-test gate. README Docker section and the fuller workflow pass stayed on later todos.
     - Listen defaults stay `127.0.0.1:3000` ([`server/src/listen.ts`](server/src/listen.ts)). `DATABASE_PATH` overrides the sqlite file ([`server/src/db.ts`](server/src/db.ts)). Tests in [`server/src/runtime-config.test.ts`](server/src/runtime-config.test.ts).
     - [`server/Dockerfile`](server/Dockerfile), [`client/Dockerfile`](client/Dockerfile), [`client/nginx.conf`](client/nginx.conf), [`.dockerignore`](.dockerignore), [`docker-compose.yml`](docker-compose.yml). nginx proxies `/health`, `/poll`, `/vote`, `/results`, and `/ws` to the `server` service. Named volume `poll-data`. UI on port 8080. `VOTE_INSTABILITY` passes through (default on).
     - Extra race test in [`server/src/vote.test.ts`](server/src/vote.test.ts): 99 parallel votes split across Web / App / Print; counts sum to 99 and each option is 33. Existing 100-user and duplicate-user tests stayed. Client rollback suite already in [`client/src/submit-vote.test.ts`](client/src/submit-vote.test.ts). `npm test` 21 server + 25 client.
@@ -46,11 +46,12 @@ The product spec and GitHub issues are the source of scope. The assistant does n
     - [`resolveListenPort`](server/src/listen.ts) rejects non-integers and ports outside 1–65535. Tests cover that, blank `HOST` / `PORT`, and `CORS_ORIGIN`.
     - `SIGTERM` / `SIGINT` call `app.close()` then `db.close()`.
     - API process runs as uid 1000 via `gosu` after `chown -R` on `/data`. Base images pinned by digest. nginx API and `/ws` locations send HTTP/1.1 and `X-Forwarded-*`.
-    - Left as-is: server runtime image still installs `@scmp/client` production dependencies (React). Review called that acceptable for the demo.
+    - Left as-is: server runtime image still installs `@polling/client` production dependencies (React). Review called that acceptable for the demo.
+25. **npm scope rename.** User asked to replace namespace `@scmp` with `@polling`. Scope: all workspace package names (`@polling/shared`, `@polling/server`, `@polling/client`), TypeScript imports, root and workspace scripts, Dockerfiles, README, and `package-lock.json` via `npm install`. No behavior change.
 
 ## Issue #3 — voting UI (summary)
 
-Reference: [issue #3](https://github.com/kiu95/scmp-polling-system/issues/3), [PRODUCT_SPEC §1.1 / §2.2](docs/PRODUCT_SPEC.md). Live count updates are on [#4](#issue-4--live-results-via-websocket-summary) (WebSocket, not HTTP polling).
+Reference: [issue #3](https://github.com/kiu95/polling-system/issues/3), [PRODUCT_SPEC §1.1 / §2.2](docs/PRODUCT_SPEC.md). Live count updates are on [#4](#issue-4--live-results-via-websocket-summary) (WebSocket, not HTTP polling).
 
 ### How it was scoped
 
@@ -76,7 +77,7 @@ Reference: [issue #3](https://github.com/kiu95/scmp-polling-system/issues/3), [P
 
 - Dev proxy: `/vote`, `/results` in [`client/vite.config.ts`](client/vite.config.ts).
 - [`deriveVoteView`](client/src/vote-state.ts): pending +1 on counts/percentages; error rolls back; voted locks selection (server option wins on `409` via [`submit-vote.ts`](client/src/submit-vote.ts) → `GET /vote`).
-- Mock user: [`readUserId`](client/src/user-id.ts) (`scmp-user-id` in `localStorage`, in-memory fallback).
+- Mock user: [`readUserId`](client/src/user-id.ts) (`poll-user-id` in `localStorage`, in-memory fallback).
 - Submit: `POST /vote` with **8s** `AbortSignal.timeout` (above default `VOTE_DELAY_MS`).
 - UI: [`VotePanel.tsx`](client/src/VotePanel.tsx) + [`App.tsx`](client/src/App.tsx) — Tailwind option buttons, count bar, `role="alert"` on failure; buttons re-enabled after error for retry.
 
@@ -104,7 +105,7 @@ No new assistant-caused defects recorded for issue #3 slices.
 
 ## Issue #4 — live results via WebSocket (summary)
 
-Reference: [issue #4](https://github.com/kiu95/scmp-polling-system/issues/4). Issue text defaulted to HTTP polling; user chose WebSocket in plan mode.
+Reference: [issue #4](https://github.com/kiu95/polling-system/issues/4). Issue text defaulted to HTTP polling; user chose WebSocket in plan mode.
 
 ### How it was scoped
 
@@ -142,10 +143,10 @@ GitHub issue #4 may still show open until closed there.
 
 ## What was built under that strategy
 
-- Root `.gitignore`, `README.md`, and an npm workspace for `@scmp/shared` (`ActivePoll`, `PollOption`).
-- `@scmp/server`: Fastify `GET /health`, `GET /poll`, `GET /results`, `POST /vote`, `GET /ws` (WebSocket results push), instability on vote only, CORS, SQLite file `server/data/poll.db`, WAL, foreign keys, schema for `polls` / `options` / `votes`, seed of `poll-1` only when that id is missing, Vitest in `server/src/app.test.ts`, `server/src/vote.test.ts`, and `server/src/ws.test.ts` (in-memory DB).
-- `@scmp/client`: Vite React + Tailwind v4; dev proxy for poll/vote/results/ws; optimistic voting UI — see [Issue #3 summary](#issue-3--voting-ui-summary); live results over WebSocket — see [Issue #4 summary](#issue-4--live-results-via-websocket-summary).
-- Root scripts: `npm run dev`, `npm test`, `npm run build`, `npm run seed`, `npm run lint` / `npm run lint:fix` (see [`package.json`](package.json)). Root [`package.json`](package.json) has `"engines": { "node": ">=24" }`; [`.nvmrc`](.nvmrc) pins 24 for nvm. `pretest` runs `build` on `@scmp/shared` so `npm test` works without a manual shared build.
+- Root `.gitignore`, `README.md`, and an npm workspace for `@polling/shared` (`ActivePoll`, `PollOption`).
+- `@polling/server`: Fastify `GET /health`, `GET /poll`, `GET /results`, `POST /vote`, `GET /ws` (WebSocket results push), instability on vote only, CORS, SQLite file `server/data/poll.db`, WAL, foreign keys, schema for `polls` / `options` / `votes`, seed of `poll-1` only when that id is missing, Vitest in `server/src/app.test.ts`, `server/src/vote.test.ts`, and `server/src/ws.test.ts` (in-memory DB).
+- `@polling/client`: Vite React + Tailwind v4; dev proxy for poll/vote/results/ws; optimistic voting UI — see [Issue #3 summary](#issue-3--voting-ui-summary); live results over WebSocket — see [Issue #4 summary](#issue-4--live-results-via-websocket-summary).
+- Root scripts: `npm run dev`, `npm test`, `npm run build`, `npm run seed`, `npm run lint` / `npm run lint:fix` (see [`package.json`](package.json)). Root [`package.json`](package.json) has `"engines": { "node": ">=24" }`; [`.nvmrc`](.nvmrc) pins 24 for nvm. `pretest` runs `build` on `@polling/shared` so `npm test` works without a manual shared build.
 - Docker: [`docker-compose.yml`](docker-compose.yml), [`server/Dockerfile`](server/Dockerfile), [`client/Dockerfile`](client/Dockerfile) + nginx proxy; UI at `http://127.0.0.1:8080`. Server env `HOST`, `PORT`, `DATABASE_PATH` for containers.
 - Verified on this machine: second seed still leaves 1 poll and 3 options; `GET /health` returns `{"ok":true}`; `GET /poll` returns the seed question and Web / App / Print; `journal_mode` is `wal`. Browser at `http://127.0.0.1:5173/` showed Health OK, “Which format do you read most?”, and Web / App / Print.
 
@@ -171,7 +172,7 @@ Audit point: the version bump is still `better-sqlite3`, not Prisma, but it was 
 
 ### Shared types resolve only after a build
 
-`@scmp/shared` exports `dist/index.d.ts`. Server `tsc` cannot see `ActivePoll` until `npm run build --workspace=@scmp/shared` has been run. Root `predev` and `pretest` run that build; README still documents running it yourself when skipping those hooks. TypeScript project references remain a follow-up.
+`@polling/shared` exports `dist/index.d.ts`. Server `tsc` cannot see `ActivePoll` until `npm run build --workspace=@polling/shared` has been run. Root `predev` and `pretest` run that build; README still documents running it yourself when skipping those hooks. TypeScript project references remain a follow-up.
 
 ### README described a server that already existed
 
@@ -227,7 +228,7 @@ Symptom: after the process dropped to uid 1000, `POST /vote` returned `500` with
 
 ### Production `npm ci` ran Husky and failed the image
 
-Symptom: `docker compose up --build` died in the server runtime stage with `sh: 1: husky: not found` during `prepare`. Cause: root `prepare` always runs `husky`, and `npm ci --omit=dev` does not install Husky. `HUSKY=0` only helps when the `husky` binary exists (the build stage skipped cleanly). Fix: runtime stage uses `npm ci --omit=dev --ignore-scripts`, then `npm rebuild better-sqlite3 --workspace=@scmp/server`. Rebuild warned that install scripts are outside `allowScripts`, but `/health` returned ok and a vote persisted, so the prebuild loaded. Assistant fixed it in the same slice; the user did not edit it by hand.
+Symptom: `docker compose up --build` died in the server runtime stage with `sh: 1: husky: not found` during `prepare`. Cause: root `prepare` always runs `husky`, and `npm ci --omit=dev` does not install Husky. `HUSKY=0` only helps when the `husky` binary exists (the build stage skipped cleanly). Fix: runtime stage uses `npm ci --omit=dev --ignore-scripts`, then `npm rebuild better-sqlite3 --workspace=@polling/server`. Rebuild warned that install scripts are outside `allowScripts`, but `/health` returned ok and a vote persisted, so the prebuild loaded. Assistant fixed it in the same slice; the user did not edit it by hand.
 
 ### `npm audit` after Vitest
 
@@ -241,4 +242,4 @@ Symptom: `npm install` pulled Vitest and reported `3 vulnerabilities (1 moderate
 
 ## Still not done
 
-Merge `feat/5-docker-compose` and close [#5](https://github.com/kiu95/scmp-polling-system/issues/5) on GitHub when the PR lands. Optional: CI workflow for `npm test` and `docker compose build`. Issue #4 implementation is summarized in [Issue #4 summary](#issue-4--live-results-via-websocket-summary); other issues may still show open until closed there.
+Merge `feat/5-docker-compose` and close [#5](https://github.com/kiu95/polling-system/issues/5) on GitHub when the PR lands. Optional: CI workflow for `npm test` and `docker compose build`. Issue #4 implementation is summarized in [Issue #4 summary](#issue-4--live-results-via-websocket-summary); other issues may still show open until closed there.

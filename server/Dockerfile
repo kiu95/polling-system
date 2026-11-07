@@ -8,7 +8,7 @@ COPY shared/package.json shared/
 RUN npm ci
 COPY shared shared
 COPY server server
-RUN npm run build --workspace=@scmp/shared && npm run build --workspace=@scmp/server
+RUN npm run build --workspace=@polling/shared && npm run build --workspace=@polling/server
 
 FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9
 WORKDIR /app
@@ -25,10 +25,10 @@ COPY package.json package-lock.json ./
 COPY client/package.json client/
 COPY server/package.json server/
 COPY shared/package.json shared/
-# npm workspaces install every package, including @scmp/client production deps (React).
-# Fine for this demo. A later image can install only @scmp/server and @scmp/shared.
+# npm workspaces install every package, including @polling/client production deps (React).
+# Fine for this demo. A later image can install only @polling/server and @polling/shared.
 RUN npm ci --omit=dev --ignore-scripts \
-  && npm rebuild better-sqlite3 --workspace=@scmp/server \
+  && npm rebuild better-sqlite3 --workspace=@polling/server \
   && mkdir -p /data \
   && chown node:node /data
 COPY --from=build /app/shared/dist shared/dist

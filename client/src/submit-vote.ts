@@ -1,4 +1,4 @@
-import type { MyVote, VoteAccepted } from '@scmp/shared';
+import type { MyVote, VoteAccepted } from '@polling/shared';
 import { apiUrl } from './api';
 import type { VotePhase } from './vote-state';
 

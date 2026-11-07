@@ -1,19 +1,19 @@
 {
-  "name": "scmp-polling-system",
+  "name": "polling-system",
   "private": true,
   "engines": {
     "node": ">=24.0.0"
   },
   "scripts": {
-    "build": "npm run build --workspace=@scmp/shared && npm run build --workspace=@scmp/server && npm run build --workspace=@scmp/client",
-    "dev": "concurrently -k -n server,client -c blue,green \"npm run dev --workspace=@scmp/server\" \"npm run dev --workspace=@scmp/client\"",
+    "build": "npm run build --workspace=@polling/shared && npm run build --workspace=@polling/server && npm run build --workspace=@polling/client",
+    "dev": "concurrently -k -n server,client -c blue,green \"npm run dev --workspace=@polling/server\" \"npm run dev --workspace=@polling/client\"",
     "lint": "biome check client server shared scripts",
     "lint:fix": "biome check --write client server shared scripts",
-    "typecheck": "npm run build --workspace=@scmp/shared && npm run typecheck --workspace=@scmp/server && npm run typecheck --workspace=@scmp/client",
-    "predev": "npm run build --workspace=@scmp/shared",
-    "pretest": "npm run build --workspace=@scmp/shared",
-    "seed": "npm run seed --workspace=@scmp/server",
-    "test": "npm run test --workspace=@scmp/server && npm run test --workspace=@scmp/client",
+    "typecheck": "npm run build --workspace=@polling/shared && npm run typecheck --workspace=@polling/server && npm run typecheck --workspace=@polling/client",
+    "predev": "npm run build --workspace=@polling/shared",
+    "pretest": "npm run build --workspace=@polling/shared",
+    "seed": "npm run seed --workspace=@polling/server",
+    "test": "npm run test --workspace=@polling/server && npm run test --workspace=@polling/client",
     "prepare": "husky"
   },
   "lint-staged": {

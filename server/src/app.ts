@@ -1,6 +1,6 @@
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
-import type { MyVote, ResultsMessage, VoteAccepted } from '@scmp/shared';
+import type { MyVote, ResultsMessage, VoteAccepted } from '@polling/shared';
 import type { FastifyReply } from 'fastify';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { CorsOrigin } from './cors-origin.js';

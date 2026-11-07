@@ -1,4 +1,4 @@
-import type { PollResults } from '@scmp/shared';
+import type { PollResults } from '@polling/shared';
 import { describe, expect, it, vi } from 'vitest';
 import {
   type LiveSocket,
