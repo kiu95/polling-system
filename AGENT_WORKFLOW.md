@@ -36,6 +36,10 @@ The product spec and GitHub issues are the source of scope. The assistant does n
 19. **Issue #4 commits by todo.** User asked to commit by plan todo and ignore this file. Five commits on `feat/4-live-result-websockets`: shared `ResultsMessage`, server WS hub, client `mergeResults`, live hook + proxy, `App`/`VotePanel` reconcile.
 20. **Issue #4 plan todos docs + verify.** User said `work remaining todo`, then summarize here. Scope: [`README.md`](README.md), [`client/.env.example`](client/.env.example), workflow summary below; `npm run lint`, `npm run typecheck`, `npm test`; manual check — two tabs on `http://127.0.0.1:5173/` with `VOTE_INSTABILITY=off`, external `POST /vote` updated Print count on both without reload (**Live**).
 21. **PR #9 review.** User pasted the review. Fixes in this slice: pending overlay baseline is the chosen option’s count (other votes no longer clear it); `/ws` registers close/error before the snapshot send and drops the socket if send throws; broadcast closes a client whose `bufferedAmount` exceeds 1 MiB; first status is **Connecting**; README names [`submit-vote.test.ts`](client/src/submit-vote.test.ts); `readResultsMessage` checks `pollId`, `total`, and option fields; removed unused `applyStoredVote` and `deriveVoteView`’s unused server-option argument; live-socket tests cover open, message, reconnect resync, and stop. [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md) now says WebSocket. Commit `fd081c8` subject typo `pdate` left as-is (already on the remote).
+22. **[GitHub issue #5](https://github.com/kiu95/scmp-polling-system/issues/5) — first four plan todos.** User said `work first 4 todo`. Scope: server `HOST` / `PORT` / `DATABASE_PATH`, Dockerfiles, Compose, critical-test gate. README Docker section and the fuller workflow pass stayed on later todos.
+    - Listen defaults stay `127.0.0.1:3000` ([`server/src/listen.ts`](server/src/listen.ts)). `DATABASE_PATH` overrides the sqlite file ([`server/src/db.ts`](server/src/db.ts)). Tests in [`server/src/runtime-config.test.ts`](server/src/runtime-config.test.ts).
+    - [`server/Dockerfile`](server/Dockerfile), [`client/Dockerfile`](client/Dockerfile), [`client/nginx.conf`](client/nginx.conf), [`.dockerignore`](.dockerignore), [`docker-compose.yml`](docker-compose.yml). nginx proxies `/health`, `/poll`, `/vote`, `/results`, and `/ws` to the `server` service. Named volume `poll-data`. UI on port 8080. `VOTE_INSTABILITY` passes through (default on).
+    - Extra race test in [`server/src/vote.test.ts`](server/src/vote.test.ts): 99 parallel votes split across Web / App / Print; counts sum to 99 and each option is 33. Existing 100-user and duplicate-user tests stayed. Client rollback suite already in [`client/src/submit-vote.test.ts`](client/src/submit-vote.test.ts). `npm test` 21 server + 25 client.
 
 ## Issue #3 — voting UI (summary)
 
@@ -209,6 +213,10 @@ Symptom: a throw from the initial `socket.send` could leave the socket in the hu
 
 Symptom: the header showed **Reconnecting** before the socket had ever opened. Cause: the hook’s initial status was `reconnecting`. Fix: initial status `connecting`, label **Connecting**. Same review.
 
+### Production `npm ci` ran Husky and failed the image
+
+Symptom: `docker compose up --build` died in the server runtime stage with `sh: 1: husky: not found` during `prepare`. Cause: root `prepare` always runs `husky`, and `npm ci --omit=dev` does not install Husky. `HUSKY=0` only helps when the `husky` binary exists (the build stage skipped cleanly). Fix: runtime stage uses `npm ci --omit=dev --ignore-scripts`, then `npm rebuild better-sqlite3 --workspace=@scmp/server`. Rebuild warned that install scripts are outside `allowScripts`, but `/health` returned ok and a vote persisted, so the prebuild loaded. Assistant fixed it in the same slice; the user did not edit it by hand.
+
 ### `npm audit` after Vitest
 
 Symptom: `npm install` pulled Vitest and reported `3 vulnerabilities (1 moderate, 2 critical)` in transitive packages. Cause: new dev dependency tree, not triaged here. Fix: none in this slice; run `npm audit` locally before production or pin overrides if needed.
@@ -221,4 +229,4 @@ Symptom: `npm install` pulled Vitest and reported `3 vulnerabilities (1 moderate
 
 ## Still not done
 
-Docker Compose and deliverable polish ([#5](https://github.com/kiu95/scmp-polling-system/issues/5)). Issue #4 implementation is summarized in [Issue #4 summary](#issue-4--live-results-via-websocket-summary); GitHub issues may still be open until closed there.
+README Docker instructions, architecture notes, and closing [#5](https://github.com/kiu95/scmp-polling-system/issues/5). Compose itself is in the repo: `docker compose up --build` serves the UI at `http://127.0.0.1:8080`. Verified with `VOTE_INSTABILITY=off`: nginx `/health` and `/poll`, a vote survived `docker compose restart server`, duplicate vote returned `409`, browser showed **Live**, optimistic **Saving…**, then **Your vote is in.** Issue #4 implementation is summarized in [Issue #4 summary](#issue-4--live-results-via-websocket-summary); GitHub issues may still be open until closed there.
