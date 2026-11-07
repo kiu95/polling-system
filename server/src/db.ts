@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { ActivePoll, PollResults } from '@scmp/shared';
+import type { ActivePoll, MyVote, PollResults } from '@scmp/shared';
 import BetterSqlite3 from 'better-sqlite3';
 
 export type SqliteDatabase = BetterSqlite3.Database;
@@ -202,6 +202,22 @@ export function insertVote(db: SqliteDatabase, input: InsertVoteInput): InsertVo
   });
 
   return run();
+}
+
+export function getMyVote(db: SqliteDatabase, userId: string): MyVote | null {
+  const pollId = getActivePollId(db);
+  if (!pollId) {
+    return null;
+  }
+
+  const row = db
+    .prepare('SELECT option_id AS optionId FROM votes WHERE user_id = ? AND poll_id = ?')
+    .get(userId, pollId) as { optionId: string } | undefined;
+
+  return {
+    pollId,
+    optionId: row?.optionId ?? null,
+  };
 }
 
 export function getResults(db: SqliteDatabase): PollResults | null {

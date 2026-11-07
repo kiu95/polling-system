@@ -1,10 +1,11 @@
 import cors from '@fastify/cors';
-import type { VoteAccepted } from '@scmp/shared';
+import type { MyVote, VoteAccepted } from '@scmp/shared';
 import type { FastifyReply } from 'fastify';
 import Fastify, { type FastifyInstance } from 'fastify';
 import {
   assessVote,
   getActivePoll,
+  getMyVote,
   getResults,
   insertVote,
   type SqliteDatabase,
@@ -88,6 +89,21 @@ export async function buildApp(
       return reply.code(404).send({ error: 'no_active_poll' });
     }
     return results;
+  });
+
+  app.get('/vote', async (request, reply) => {
+    const userId = normalizeUserId(request.headers['x-user-id']);
+    if (!userId) {
+      return reply.code(400).send({ error: 'invalid_user_id' });
+    }
+
+    const mine = getMyVote(db, userId);
+    if (!mine) {
+      return reply.code(404).send({ error: 'no_active_poll' });
+    }
+
+    const body: MyVote = mine;
+    return body;
   });
 
   app.post<{ Body: VoteBody }>('/vote', async (request, reply) => {
