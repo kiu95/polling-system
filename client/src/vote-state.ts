@@ -58,14 +58,24 @@ export function applyStoredVote(results: PollResults, optionId: string): PollRes
   };
 }
 
+export function mergeResults(current: PollResults, incoming: PollResults): PollResults {
+  if (incoming.pollId !== current.pollId || incoming.total < current.total) {
+    return current;
+  }
+  return incoming;
+}
+
 export function deriveVoteView(
   results: PollResults,
   _serverOptionId: string | null,
   phase: VotePhase,
+  baselineTotal: number | null = null,
 ): VoteView {
   const selectedOptionId = selectedId(phase);
+  const pendingBump =
+    phase.status === 'pending' && (baselineTotal === null || results.total <= baselineTotal);
   const counts = results.options.map((option) =>
-    phase.status === 'pending' && option.id === selectedOptionId ? option.count + 1 : option.count,
+    pendingBump && option.id === selectedOptionId ? option.count + 1 : option.count,
   );
   const total = counts.reduce((sum, count) => sum + count, 0);
 

@@ -1,6 +1,6 @@
 import type { PollResults } from '@scmp/shared';
 import { describe, expect, it } from 'vitest';
-import { applyStoredVote, deriveVoteView, type VotePhase } from './vote-state';
+import { applyStoredVote, deriveVoteView, mergeResults, type VotePhase } from './vote-state';
 
 const emptyResults: PollResults = {
   total: 0,
@@ -91,5 +91,29 @@ describe('deriveVoteView', () => {
   it('does not add a second count when results already include the vote', () => {
     const view = deriveVoteView(savedWeb, 'opt-web', { optionId: 'opt-web', status: 'voted' });
     expect(view.options.find((option) => option.id === 'opt-web')?.count).toBe(1);
+  });
+
+  it('drops the pending overlay once the snapshot total passes the baseline', () => {
+    const phase: VotePhase = { optionId: 'opt-app', status: 'pending' };
+    const view = deriveVoteView(savedWeb, null, phase, 0);
+    expect(view.pendingOptionId).toBe('opt-app');
+    expect(view.options.find((option) => option.id === 'opt-app')?.count).toBe(0);
+    expect(view.options.find((option) => option.id === 'opt-web')?.count).toBe(1);
+  });
+});
+
+describe('mergeResults', () => {
+  it('keeps the current snapshot when the incoming total is lower', () => {
+    expect(mergeResults(savedWeb, emptyResults)).toBe(savedWeb);
+  });
+
+  it('replaces the snapshot when the incoming total is equal or higher', () => {
+    expect(mergeResults(emptyResults, savedWeb)).toBe(savedWeb);
+    expect(mergeResults(savedWeb, savedWeb)).toBe(savedWeb);
+  });
+
+  it('ignores a snapshot for a different poll', () => {
+    const other: PollResults = { ...savedWeb, pollId: 'poll-2', total: 9 };
+    expect(mergeResults(savedWeb, other)).toBe(savedWeb);
   });
 });
