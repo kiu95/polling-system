@@ -1,22 +1,25 @@
 # SCMP Polling System
 
-Local development — see [issue #1](https://github.com/kiu95/scmp-polling-system/issues/1). Docker Compose and full stack polish arrive in [issue #5](https://github.com/kiu95/scmp-polling-system/issues/5).
+Live poll with optimistic voting, rollback on failed submits, and WebSocket result pushes. Run locally with Node ([issue #1](https://github.com/kiu95/scmp-polling-system/issues/1)) or as a full stack via Docker Compose ([issue #5](https://github.com/kiu95/scmp-polling-system/issues/5)).
 
 ## Stack
 
 - **Frontend:** Vite + React + TypeScript + Tailwind CSS v4 in [`client/`](client/).
 - **Backend:** Fastify + TypeScript + SQLite (`better-sqlite3`) in [`server/`](server/).
+- **Shared types:** [`shared/`](shared/) (`ActivePoll`, votes, results, WebSocket messages).
 
 ## Ports
 
-| Service | Port |
-| ------- | ---- |
-| API     | 3000 |
-| Vite    | 5173 |
+| Mode | What | Port |
+| ---- | ---- | ---- |
+| Local dev | Fastify API | 3000 |
+| Local dev | Vite dev server | 5173 |
+| Docker Compose | nginx + static client (proxies API and `/ws`) | 8080 |
 
 ## Requirements
 
-- **Node.js 24 or newer** — required by [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) (native prebuilds; older Node versions often fall back to a source compile that can fail). This repo is also verified on **Node.js 24.x** (darwin arm64).
+- **Node.js 24 or newer** for local dev — required by [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) (native prebuilds; older Node versions often fall back to a source compile that can fail). This repo is also verified on **Node.js 24.x** (darwin arm64).
+- **Docker** with Compose v2 for the container path (no local Node install required to run the stack).
 
 ## Install
 
@@ -103,6 +106,49 @@ Turn it off for predictable curls and tests:
 
 The vote curl above uses the same `VOTE_INSTABILITY=off` switch.
 
+## Docker
+
+From the repository root, build and start **server** (API + SQLite on a named volume) and **client** (production Vite build behind nginx):
+
+```bash
+docker compose up --build
+```
+
+Open `http://127.0.0.1:8080`. The browser talks to nginx on port 8080 only; nginx proxies `/health`, `/poll`, `/vote`, `/results`, and `/ws` to the `server` service on the Compose network (same paths as the Vite dev proxy).
+
+Useful commands:
+
+```bash
+docker compose up --build -d          # detached
+docker compose logs -f server         # API logs
+docker compose stop                   # stop containers
+docker compose down                   # stop and remove containers
+docker compose down -v                # also delete the poll-data volume (fresh DB)
+```
+
+Vote instability follows the same env vars as local dev. The compose file passes `VOTE_INSTABILITY` from the host (default **on**). For stable demos or curls through nginx:
+
+```bash
+VOTE_INSTABILITY=off docker compose up --build
+curl -s http://127.0.0.1:8080/health
+```
+
+Server bind and database file inside the container are set in [`server/Dockerfile`](server/Dockerfile) and [`docker-compose.yml`](docker-compose.yml): `HOST=0.0.0.0`, `DATABASE_PATH=/data/poll.db` on volume `poll-data`. Local `npm run dev` is unchanged (`127.0.0.1:3000`, `server/data/poll.db` unless `DATABASE_PATH` is set).
+
+## Architecture (brief)
+
+```text
+Browser ──► Vite (dev) or nginx (Docker) ──► Fastify
+                                              ├── SQLite (votes, options, polls)
+                                              └── WebSocket hub (results snapshots)
+```
+
+- **Votes** — One row per `(user_id, poll_id)` with a unique index. `insertVote` runs in a transaction; concurrent submits rely on SQLite, not an application-level counter column. Results are always `COUNT(*)` per option ([`server/src/db.ts`](server/src/db.ts)).
+- **Race safety (critical tests)** — Vitest fires many parallel `POST /vote` injects (same option and split across options) and duplicate-user races; see [`server/src/vote.test.ts`](server/src/vote.test.ts).
+- **Instability** — Eligibility (`assessVote`) runs before the optional failure simulator, so `409` / `400` / `404` stay stable under chaos; `500 simulated_failure` only when a row would have been inserted ([`server/src/vote-instability.ts`](server/src/vote-instability.ts)).
+- **Live results** — After a successful insert, the server broadcasts `{ "type": "results", "results": … }` on `/ws` ([`server/src/results-hub.ts`](server/src/results-hub.ts)).
+- **Optimistic UI** — Pending +1 on the chosen option’s count; rollback on `500`, timeout, or network errors; refetch results on accept so WebSocket updates do not double-count ([`client/src/vote-state.ts`](client/src/vote-state.ts), [`client/src/submit-vote.ts`](client/src/submit-vote.ts)).
+
 ## Build
 
 ```bash
@@ -116,7 +162,23 @@ npm run start --workspace=@scmp/server
 npm test
 ```
 
-`pretest` builds `@scmp/shared` so workspace tests resolve types and package exports. Server tests use an in-memory database (no `server/data/poll.db`), including concurrent vote injects, `GET /vote` in [`server/src/vote.test.ts`](server/src/vote.test.ts), and WebSocket snapshot/broadcast checks in [`server/src/ws.test.ts`](server/src/ws.test.ts). Client tests cover API/WebSocket URL helpers, `mergeResults`, live-socket open/message/reconnect/unmount, reconnect backoff, optimistic vote view derivation (including another voter during pending), submit/rollback in [`client/src/submit-vote.test.ts`](client/src/submit-vote.test.ts), and mock user id storage in [`client/src/`](client/src/).
+`pretest` builds `@scmp/shared` so workspace tests resolve types and package exports. Vitest runs in both workspaces ([`server/vitest.config.ts`](server/vitest.config.ts), [`client/vite.config.ts`](client/vite.config.ts) `test` block).
+
+**Critical failure-mode suites** (assignment [#5](https://github.com/kiu95/scmp-polling-system/issues/5)):
+
+| Area | File | What it proves |
+| ---- | ---- | -------------- |
+| Concurrent votes / races | [`server/src/vote.test.ts`](server/src/vote.test.ts) | 100 parallel users on one option; 99 parallel votes split across three options; parallel duplicate user → one row and `409` |
+| Optimistic rollback | [`client/src/submit-vote.test.ts`](client/src/submit-vote.test.ts) | `500`, timeout, bad body, `409` lock, failed `GET /vote` after accept |
+
+Other server coverage: smoke and idempotent seed in [`server/src/app.test.ts`](server/src/app.test.ts), listen/DB path env in [`server/src/runtime-config.test.ts`](server/src/runtime-config.test.ts), WebSocket snapshot/broadcast in [`server/src/ws.test.ts`](server/src/ws.test.ts). Client: `mergeResults`, live socket hook, API URL helpers, vote view derivation under pending + live updates.
+
+Before a PR, also run:
+
+```bash
+npm run lint
+npm run typecheck
+```
 
 ## Typecheck
 
