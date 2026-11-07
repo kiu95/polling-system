@@ -23,12 +23,67 @@ The product spec and GitHub issues are the source of scope. The assistant does n
     - **Routes** ([`server/src/app.ts`](server/src/app.ts)): `POST /vote` (`x-user-id`, body `optionId`); instability runs before `insertVote`; `GET /results`. Statuses: `200` / `400` (`invalid_user_id`, `invalid_option_id`, `invalid_option`) / `404` (`no_active_poll`) / `409` (`already_voted`) / `500` (`simulated_failure`). That slice did not add `vote.test.ts`, README, or Vite proxy.
     - **Tests + docs** ([`server/src/vote.test.ts`](server/src/vote.test.ts), [`README.md`](README.md), this file): Vitest covers happy path, `409`, 100 parallel users same option, parallel duplicate user, validation, empty DB, forced `500` and delay. README: curls, env (`VOTE_INSTABILITY`, `VOTE_FAILURE_RATE`, `VOTE_DELAY_MS`), note Vite still proxies only `/health` and `/poll` until issue #3. No [`client/vite.config.ts`](client/vite.config.ts) proxy for `/vote` or `/results`.
 12. **PR #7 review.** User pasted the review. Scope: run eligibility (`assessVote`) before `applyVoteInstability`, so a second vote, a bad option, and a missing poll stay `409` / `400` / `404` while chaos is on; `simulated_failure` only when the insert would otherwise succeed. Removed unused `app.decorate('voteInstability')`. README puts `VOTE_INSTABILITY=off` on the vote curl. Test: already-voted user plus a forced-fail config still returns `409` and does not roll. Happy-path results assert zero-vote percentages and `100` after one vote.
+13–14. **[GitHub issue #3](https://github.com/kiu95/scmp-polling-system/issues/3) — voting UI.** User drove `work on first 5 todo items` then `work remaining todo` (docs only). Grouped record: [Issue #3 — voting UI (summary)](#issue-3--voting-ui-summary).
+
+## Issue #3 — voting UI (summary)
+
+Reference: [issue #3](https://github.com/kiu95/scmp-polling-system/issues/3), [PRODUCT_SPEC §1.1 / §2.2](docs/PRODUCT_SPEC.md). Live results polling stays on [#4](https://github.com/kiu95/scmp-polling-system/issues/4).
+
+### How it was scoped
+
+- Plan mode triage first; user added **Tailwind v4** before implementation (`@tailwindcss/vite`, zinc editorial layout — no full ui-ux-pro-max landing treatment).
+- Six plan todos: server read path → Vite proxy → pure optimistic state → Tailwind → submit + panel → README / workflow.
+
+### Delivery slices
+
+| Slice | User gate | In scope | Out of scope |
+| ----- | --------- | -------- | ------------ |
+| Implementation | `work on first 5 todo items` | `GET /vote`, client vote flow, Tailwind UI, tests | README, HTTP polling |
+| Docs | `work remaining todo` | [`README.md`](README.md), [`client/.env.example`](client/.env.example), workflow cross-refs | Code |
+
+### What shipped
+
+**Shared / server**
+
+- [`MyVote`](shared/src/index.ts) (`pollId`, `optionId` nullable).
+- [`getMyVote`](server/src/db.ts) and `GET /vote` in [`server/src/app.ts`](server/src/app.ts) — same `x-user-id` rules as `POST`; `200` with `optionId: null` when the user has not voted.
+- Vitest in [`server/src/vote.test.ts`](server/src/vote.test.ts) for empty vote, after insert, bad user, no poll.
+
+**Client**
+
+- Dev proxy: `/vote`, `/results` in [`client/vite.config.ts`](client/vite.config.ts).
+- [`deriveVoteView`](client/src/vote-state.ts): pending +1 on counts/percentages; error rolls back; voted locks selection (server option wins on `409` via [`submit-vote.ts`](client/src/submit-vote.ts) → `GET /vote`).
+- Mock user: [`readUserId`](client/src/user-id.ts) (`scmp-user-id` in `localStorage`, in-memory fallback).
+- Submit: `POST /vote` with **8s** `AbortSignal.timeout` (above default `VOTE_DELAY_MS`).
+- UI: [`VotePanel.tsx`](client/src/VotePanel.tsx) + [`App.tsx`](client/src/App.tsx) — Tailwind option buttons, count bar, `role="alert"` on failure; buttons re-enabled after error for retry.
+
+### Behaviour (acceptance mapping)
+
+| Requirement | Mechanism |
+| ----------- | --------- |
+| Instant feedback | `pending` phase before `fetch` resolves |
+| Rollback on failure | `500` / timeout / network → `error` phase; counts restore |
+| No FE-only double-vote guard | Load + lock from `GET /vote`; `409` re-fetches mine |
+| Drill with instability | Default server sim unchanged; client shows rollback message |
+
+### Verification
+
+- `npm test`, `npm run lint`, `npm run typecheck`; client `vite build`.
+- Browser (`VOTE_INSTABILITY=off`): vote survives reload; stubbed `POST` `500` → “Vote didn't save. Try again.” and count restored; retry succeeds.
+
+### Docs touched (docs slice)
+
+- README: Tailwind in stack, proxy list, voting UI, `GET /vote` curl, client test paths.
+- [`client/.env.example`](client/.env.example): proxy paths.
+- This file: prompt items 13–14, summary section, “what was built” client line, “still not done”.
+
+No new assistant-caused defects recorded for issue #3 slices.
 
 ## What was built under that strategy
 
 - Root `.gitignore`, `README.md`, and an npm workspace for `@scmp/shared` (`ActivePoll`, `PollOption`).
 - `@scmp/server`: Fastify `GET /health`, `GET /poll`, `GET /results`, `POST /vote` (instability on vote only), CORS, SQLite file `server/data/poll.db`, WAL, foreign keys, schema for `polls` / `options` / `votes`, seed of `poll-1` only when that id is missing, Vitest in `server/src/app.test.ts` and `server/src/vote.test.ts` (in-memory DB).
-- `@scmp/client`: Vite React page. Empty `VITE_API_URL` uses the dev proxy. The page shows health OK, the seed question, and option labels. No vote control.
+- `@scmp/client`: Vite React + Tailwind v4; dev proxy for poll/vote/results paths; optimistic voting UI — see [Issue #3 summary](#issue-3--voting-ui-summary).
 - Root scripts: `npm run dev`, `npm test`, `npm run build`, `npm run seed`, `npm run lint` / `npm run lint:fix` (see [`package.json`](package.json)). Root [`package.json`](package.json) has `"engines": { "node": ">=24" }`; [`.nvmrc`](.nvmrc) pins 24 for nvm. `pretest` runs `build` on `@scmp/shared` so `npm test` works without a manual shared build.
 - Verified on this machine: second seed still leaves 1 poll and 3 options; `GET /health` returns `{"ok":true}`; `GET /poll` returns the seed question and Web / App / Print; `journal_mode` is `wal`. Browser at `http://127.0.0.1:5173/` showed Health OK, “Which format do you read most?”, and Web / App / Print.
 
@@ -100,4 +155,4 @@ Symptom: `npm install` pulled Vitest and reported `3 vulnerabilities (1 moderate
 
 ## Still not done
 
-Optimistic UI, HTTP polling of results from the browser, and Docker Compose. Those stay on issues #3, #4, and #5.
+HTTP polling of results from the browser ([#4](https://github.com/kiu95/scmp-polling-system/issues/4)) and Docker Compose ([#5](https://github.com/kiu95/scmp-polling-system/issues/5)). Issue #3 client work is described in [Issue #3 summary](#issue-3--voting-ui-summary); GitHub issue may still be open until closed there.
