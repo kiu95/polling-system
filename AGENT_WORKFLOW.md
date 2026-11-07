@@ -1,6 +1,6 @@
 # Agent workflow
 
-How the coding assistant was guided on this repo, and which of its choices had to be corrected. Written 2026-11-06, during the local scaffold ([issue #1](https://github.com/kiu95/scmp-polling-system/issues/1)). Backend work for [issue #2](https://github.com/kiu95/scmp-polling-system/issues/2) is recorded below in the prompt strategy. Docker Compose, deliverable polish, and the broader critical-test expectations are still [issue #5](https://github.com/kiu95/scmp-polling-system/issues/5). This file records what already happened. It is not a claim that open GitHub issues are closed until the repo or issue says so.
+How the coding assistant was guided on this repo, and which of its choices had to be corrected. Written 2026-11-06, during the local scaffold ([issue #1](https://github.com/kiu95/scmp-polling-system/issues/1)). Backend, UI, WebSocket results, and Docker Compose deliverables are summarized below. [Issue #5](https://github.com/kiu95/scmp-polling-system/issues/5) implementation is on branch `feat/5-docker-compose` until merged. This file records what already happened. It is not a claim that open GitHub issues are closed until the repo or issue says so.
 
 ## Prompt strategy
 
@@ -40,6 +40,7 @@ The product spec and GitHub issues are the source of scope. The assistant does n
     - Listen defaults stay `127.0.0.1:3000` ([`server/src/listen.ts`](server/src/listen.ts)). `DATABASE_PATH` overrides the sqlite file ([`server/src/db.ts`](server/src/db.ts)). Tests in [`server/src/runtime-config.test.ts`](server/src/runtime-config.test.ts).
     - [`server/Dockerfile`](server/Dockerfile), [`client/Dockerfile`](client/Dockerfile), [`client/nginx.conf`](client/nginx.conf), [`.dockerignore`](.dockerignore), [`docker-compose.yml`](docker-compose.yml). nginx proxies `/health`, `/poll`, `/vote`, `/results`, and `/ws` to the `server` service. Named volume `poll-data`. UI on port 8080. `VOTE_INSTABILITY` passes through (default on).
     - Extra race test in [`server/src/vote.test.ts`](server/src/vote.test.ts): 99 parallel votes split across Web / App / Print; counts sum to 99 and each option is 33. Existing 100-user and duplicate-user tests stayed. Client rollback suite already in [`client/src/submit-vote.test.ts`](client/src/submit-vote.test.ts). `npm test` 21 server + 25 client.
+23. **Issue #5 remaining plan todos.** User said `open new branch, split commits by todo` then `work remaining items`. Branch `feat/5-docker-compose` with five commits (env, Dockerfiles, compose, race test, workflow). This slice: [`README.md`](README.md) Docker run/stop/volume, architecture notes, critical-test table; verify pass (`npm run lint`, `npm run typecheck`, `npm test`, Docker smoke). No new product code.
 
 ## Issue #3 — voting UI (summary)
 
@@ -139,6 +140,7 @@ GitHub issue #4 may still show open until closed there.
 - `@scmp/server`: Fastify `GET /health`, `GET /poll`, `GET /results`, `POST /vote`, `GET /ws` (WebSocket results push), instability on vote only, CORS, SQLite file `server/data/poll.db`, WAL, foreign keys, schema for `polls` / `options` / `votes`, seed of `poll-1` only when that id is missing, Vitest in `server/src/app.test.ts`, `server/src/vote.test.ts`, and `server/src/ws.test.ts` (in-memory DB).
 - `@scmp/client`: Vite React + Tailwind v4; dev proxy for poll/vote/results/ws; optimistic voting UI — see [Issue #3 summary](#issue-3--voting-ui-summary); live results over WebSocket — see [Issue #4 summary](#issue-4--live-results-via-websocket-summary).
 - Root scripts: `npm run dev`, `npm test`, `npm run build`, `npm run seed`, `npm run lint` / `npm run lint:fix` (see [`package.json`](package.json)). Root [`package.json`](package.json) has `"engines": { "node": ">=24" }`; [`.nvmrc`](.nvmrc) pins 24 for nvm. `pretest` runs `build` on `@scmp/shared` so `npm test` works without a manual shared build.
+- Docker: [`docker-compose.yml`](docker-compose.yml), [`server/Dockerfile`](server/Dockerfile), [`client/Dockerfile`](client/Dockerfile) + nginx proxy; UI at `http://127.0.0.1:8080`. Server env `HOST`, `PORT`, `DATABASE_PATH` for containers.
 - Verified on this machine: second seed still leaves 1 poll and 3 options; `GET /health` returns `{"ok":true}`; `GET /poll` returns the seed question and Web / App / Print; `journal_mode` is `wal`. Browser at `http://127.0.0.1:5173/` showed Health OK, “Which format do you read most?”, and Web / App / Print.
 
 ## Defects the assistant introduced
@@ -229,4 +231,4 @@ Symptom: `npm install` pulled Vitest and reported `3 vulnerabilities (1 moderate
 
 ## Still not done
 
-README Docker instructions, architecture notes, and closing [#5](https://github.com/kiu95/scmp-polling-system/issues/5). Compose itself is in the repo: `docker compose up --build` serves the UI at `http://127.0.0.1:8080`. Verified with `VOTE_INSTABILITY=off`: nginx `/health` and `/poll`, a vote survived `docker compose restart server`, duplicate vote returned `409`, browser showed **Live**, optimistic **Saving…**, then **Your vote is in.** Issue #4 implementation is summarized in [Issue #4 summary](#issue-4--live-results-via-websocket-summary); GitHub issues may still be open until closed there.
+Merge `feat/5-docker-compose` and close [#5](https://github.com/kiu95/scmp-polling-system/issues/5) on GitHub when the PR lands. Optional: CI workflow for `npm test` and `docker compose build`. Issue #4 implementation is summarized in [Issue #4 summary](#issue-4--live-results-via-websocket-summary); other issues may still show open until closed there.
