@@ -1,6 +1,27 @@
-# Polling System
+# High-Concurrency Polling System
 
-Live poll with optimistic voting, rollback on failed submits, and WebSocket result pushes. Run locally with Node ([issue #1](https://github.com/kiu95/polling-system/issues/1)) or as a full stack via Docker Compose ([issue #5](https://github.com/kiu95/polling-system/issues/5)).
+Live poll with optimistic voting, rollback on failed submits, and WebSocket result pushes. The assignment allows polling, WebSocket, or SSE for live results; this project uses **WebSocket**. Run locally with Node ([issue #1](https://github.com/kiu95/polling-system/issues/1)) or as a full stack via Docker Compose ([issue #5](https://github.com/kiu95/polling-system/issues/5)).
+
+How the coding assistant was guided (prompts, audits, defects): [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md).
+
+## Quick start
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`.
+
+Or with Docker (UI on port 8080):
+
+```bash
+docker compose up --build
+```
+
+Open `http://127.0.0.1:8080`.
+
+Details for env vars, API curls, architecture, and tests are below.
 
 ## Stack
 
